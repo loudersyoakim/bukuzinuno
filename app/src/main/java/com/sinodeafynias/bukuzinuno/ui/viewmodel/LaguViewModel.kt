@@ -57,40 +57,84 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
         val prefs = context.getSharedPreferences("ZinunoPrefs", Context.MODE_PRIVATE)
 
         viewModelScope.launch {
-            // 1. LOAD DATA AWAL DARI ASSETS (Pencegahan Layar Kosong)
-            muatAppInfoLokal(context)
+            // 1. TAHAP INFO APP: Jangan baca JSON terus-terusan! Cek dulu versinya.
+            muatAppInfoLokalAtauPrefs(context, prefs)
+            syncAppInfoRemote(prefs)
 
+            // 2. TAHAP LAGU: Cek Room, HANYA baca JSON jika database HP benar-benar kosong
             val laguSaatIni = repository.semuaLagu.first()
             if (laguSaatIni.isEmpty()) {
                 muatLaguDariJsonLokal(context, prefs)
             }
 
-            // 2. CEK UPDATE KE FIREBASE (Hanya download jika versi lebih tinggi)
-            syncAppInfoRemote(prefs)
+            // 3. CEK UPDATE KE FIREBASE
             syncNodeLaguRemote(prefs, nodeName = "lagu", prefKey = "versi_lagu")
             syncNodeLaguRemote(prefs, nodeName = "dll", prefKey = "versi_dll")
         }
     }
 
-    // --- BACA APP_INFO.JSON DARI ASSETS ---
-    private fun muatAppInfoLokal(context: Context) {
-        try {
-            val inputStream = context.assets.open("app_info.json")
-            val reader = InputStreamReader(inputStream)
-            val type = object : TypeToken<Map<String, Any>>() {}.type
-            val data: Map<String, Any> = Gson().fromJson(reader, type)
+    // --- BACA APP INFO (ANTI AMNESIA) ---
+    private fun muatAppInfoLokalAtauPrefs(context: Context, prefs: SharedPreferences) {
+        val versiLokalInfo = prefs.getInt("versi_app_info", 0)
 
-            appDescription = data["description"]?.toString() ?: ""
-            churchEmail = data["email"]?.toString() ?: ""
-            devName = data["developer"]?.toString() ?: ""
-            thankYouNote = data["thanks"]?.toString() ?: ""
-            devContact = data["whatsapp"]?.toString() ?: ""
+        if (versiLokalInfo == 0) {
+            // JIKA BARU INSTALL: Baca dari JSON
+            try {
+                val inputStream = context.assets.open("app_info.json")
+                val type = object : TypeToken<Map<String, Any>>() {}.type
+                val data: Map<String, Any> = Gson().fromJson(InputStreamReader(inputStream), type)
 
-            reader.close()
-            Log.d("Sync", "App Info lokal berhasil dimuat")
-        } catch (e: Exception) {
-            Log.e("Sync", "Gagal muat app_info.json: ${e.message}")
+                appDescription = data["description"]?.toString() ?: ""
+                churchEmail = data["email"]?.toString() ?: ""
+                devName = data["developer"]?.toString() ?: ""
+                thankYouNote = data["thanks"]?.toString() ?: ""
+                devContact = data["whatsapp"]?.toString() ?: ""
+            } catch (e: Exception) {
+                Log.e("Sync", "Gagal muat app_info.json: ${e.message}")
+            }
+        } else {
+            // JIKA SUDAH PERNAH UPDATE FIREBASE: Baca dari SharedPreferences
+            appDescription = prefs.getString("app_desc", "") ?: ""
+            churchEmail = prefs.getString("app_email", "") ?: ""
+            devName = prefs.getString("app_dev", "") ?: ""
+            thankYouNote = prefs.getString("app_thanks", "") ?: ""
+            devContact = prefs.getString("app_wa", "") ?: ""
         }
+    }
+
+    // --- SYNC APP INFO DARI FIREBASE ---
+    private fun syncAppInfoRemote(prefs: SharedPreferences) {
+        val versiLokalInfo = prefs.getInt("versi_app_info", 0)
+        val infoRef = FirebaseDatabase.getInstance().getReference("app_info")
+
+        infoRef.addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                if (snapshot.exists()) {
+                    val versiServer = snapshot.child("version").getValue(Int::class.java) ?: 1
+
+                    if (versiServer > versiLokalInfo || versiLokalInfo == 0) {
+                        appDescription = snapshot.child("description").value?.toString() ?: appDescription
+                        churchEmail = snapshot.child("email").value?.toString() ?: churchEmail
+                        devContact = snapshot.child("whatsapp").value?.toString() ?: devContact
+                        devName = snapshot.child("developer").value?.toString() ?: devName
+                        thankYouNote = snapshot.child("thanks").value?.toString() ?: thankYouNote
+
+                        // SIMPAN KE PREFS SECARA PERMANEN AGAR TIDAK HILANG SAAT REFRESH
+                        prefs.edit()
+                            .putInt("versi_app_info", versiServer)
+                            .putString("app_desc", appDescription)
+                            .putString("app_email", churchEmail)
+                            .putString("app_wa", devContact)
+                            .putString("app_dev", devName)
+                            .putString("app_thanks", thankYouNote)
+                            .apply()
+
+                        Log.d("Sync", "App Info diperbarui dari Firebase ke versi $versiServer")
+                    }
+                }
+            }
+            override fun onCancelled(error: DatabaseError) {}
+        })
     }
 
     // --- BACA LAGU & ONONOTA DARI ASSETS (Hanya 1x saat install) ---
@@ -123,51 +167,22 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
         }
     }
 
-    // --- SYNC APP INFO DARI FIREBASE ---
-    private fun syncAppInfoRemote(prefs: SharedPreferences) {
-        val versiLokalInfo = prefs.getInt("versi_app_info", 0)
-        val infoRef = FirebaseDatabase.getInstance().getReference("app_info")
-
-        infoRef.addListenerForSingleValueEvent(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                if (snapshot.exists()) {
-                    val versiServer = snapshot.child("version").getValue(Int::class.java) ?: 1
-
-                    if (versiServer > versiLokalInfo || versiLokalInfo == 0) {
-                        appDescription = snapshot.child("description").value?.toString() ?: appDescription
-                        churchEmail = snapshot.child("email").value?.toString() ?: churchEmail
-                        devContact = snapshot.child("whatsapp").value?.toString() ?: devContact
-                        devName = snapshot.child("developer").value?.toString() ?: devName
-                        thankYouNote = snapshot.child("thanks").value?.toString() ?: thankYouNote
-
-                        prefs.edit().putInt("versi_app_info", versiServer).apply()
-                        Log.d("Sync", "App Info diperbarui dari Firebase ke versi $versiServer")
-                    }
-                }
-            }
-            override fun onCancelled(error: DatabaseError) {
-                Log.e("Sync", "Firebase Error: ${error.message}")
-            }
-        })
-    }
-
-    // --- SYNC LAGU/DLL DARI FIREBASE (DELTA SYNC) ---
+    // --- SYNC LAGU/DLL DARI FIREBASE (ANTI HILANG FAVORIT) ---
     private fun syncNodeLaguRemote(prefs: SharedPreferences, nodeName: String, prefKey: String) {
         val versiLokal = prefs.getInt(prefKey, 1)
         val ref = FirebaseDatabase.getInstance().getReference(nodeName)
 
-        // Query: Ambil data yang versinya > versi di HP
         ref.orderByChild("version").startAfter(versiLokal.toDouble())
             .addListenerForSingleValueEvent(object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
-                    if (!snapshot.exists()) {
-                        Log.d("Sync", "Tabel '$nodeName' sudah versi terbaru")
-                        return
-                    }
+                    if (!snapshot.exists()) return
 
                     viewModelScope.launch(Dispatchers.IO) {
                         val daftarLaguBaru = mutableListOf<Lagu>()
                         var versiTertinggi = versiLokal
+
+                        // AMBIL DAFTAR LAGU LOKAL UNTUK MENGECEK STATUS BINTANG
+                        val daftarLaguLokal = repository.semuaLagu.first()
 
                         for (laguSnap in snapshot.children) {
                             val v = laguSnap.child("version").getValue(Int::class.java) ?: 1
@@ -178,15 +193,22 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
                                 it.value?.toString()?.let { baris -> lirikList.add(baris) }
                             }
 
+                            val idLagu = laguSnap.child("id").value?.toString() ?: ""
+
+                            // CARI LAGU INI DI HP, KALAU ADA BINTANGNYA, PERTAHANKAN!
+                            val laguLama = daftarLaguLokal.find { it.id == idLagu }
+                            val statusFavorit = laguLama?.isFavorit ?: false
+
                             val lagu = Lagu(
-                                id = laguSnap.child("id").value?.toString() ?: "",
+                                id = idLagu,
                                 nomor_urut = laguSnap.child("nomor_urut").getValue(Int::class.java) ?: 0,
                                 nomor = laguSnap.child("nomor").value?.toString() ?: "",
                                 judul = laguSnap.child("judul").value?.toString() ?: "",
                                 kategori = laguSnap.child("kategori").value?.toString() ?: "",
                                 nada = laguSnap.child("nada").value?.toString() ?: "",
                                 lirik = lirikList,
-                                version = v
+                                version = v,
+                                isFavorit = statusFavorit // <--- KUNCI ANTI AMNESIA
                             )
                             daftarLaguBaru.add(lagu)
                         }

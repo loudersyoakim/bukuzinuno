@@ -41,6 +41,11 @@ fun MenuScreen(
     val context = LocalContext.current
     val activity = context as? Activity
 
+    // --- BACA MEMORI UNTUK MENGAMBIL VERSI SYNC TERAKHIR ---
+    val prefs = context.getSharedPreferences("ZinunoPrefs", android.content.Context.MODE_PRIVATE)
+    val versiAppInfo = prefs.getInt("versi_app_info", 1)
+
+
     // --- FITUR: LAYAR TETAP MENYALA ---
     DisposableEffect(isKeepScreenOn) {
         if (isKeepScreenOn) {
@@ -179,6 +184,33 @@ fun MenuScreen(
                         }
                     )
                 }
+            }
+        }
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Teks Versi Dinamis (Format: v1.[versi_app_info].[versi_df_info])
+                Text(
+                    text = "Versi 1.$versiAppInfo",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = colorScheme.outline,
+                    letterSpacing = 1.sp
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Teks Copyright
+                Text(
+                    text = "© 2026 Sinode AFY. Hak Cipta Dilindungi.",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = colorScheme.outlineVariant
+                )
             }
         }
     }

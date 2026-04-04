@@ -45,7 +45,7 @@ fun String.menormalisasiTeks(): String {
 /**
  * 2. MAIN SCREEN (NAVIGASI PUSAT)
  */
-@OptIn(ExperimentalMaterial3Api::class) // Ditambahkan agar bisa pakai PullToRefreshBox
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
     viewModel: LaguViewModel,
@@ -57,39 +57,37 @@ fun MainScreen(
     val activity = LocalContext.current as? Activity
     val context = LocalContext.current
     val colorScheme = MaterialTheme.colorScheme
-    val scope = rememberCoroutineScope() // Scope untuk menjalankan animasi coroutine
+    val scope = rememberCoroutineScope()
 
     // --- STATE PULL TO REFRESH ---
     var isRefreshing by remember { mutableStateOf(false) }
 
-    // --- STATE BACKSTACK (MENGINGAT RIWAYAT MENU) ---
-    val navigationHistory = remember { mutableStateListOf(0) }
-    var selectedItem by remember { mutableStateOf(navigationHistory.last()) }
+    // --- STATE NAVIGASI UTAMA (TIDAK PERLU LIST LAGI, CUKUP ANGKA) ---
+    var selectedItem by remember { mutableStateOf(0) } // 0 = Beranda / Daftar Lagu
 
     // State untuk Popup Keluar
     var showExitDialog by remember { mutableStateOf(false) }
 
-    // --- STATE MANAGEMENT INTERNAL ---
+    // --- STATE MANAGEMENT INTERNAL (OVERLAY LIRIK/KATEGORI) ---
     var openedKategori by remember { mutableStateOf<String?>(null) }
     var selectedLaguId by remember { mutableStateOf<String?>(null) }
 
-    // --- LOGIKA TOMBOL BACK FISIK (HIERARKI PINTAR) ---
+    // --- LOGIKA TOMBOL BACK FISIK (LANGSUNG KE BERANDA) ---
     BackHandler {
         if (showExitDialog) {
-            // 1. Jika dialog keluar terbuka, batalkan
+            // 1. Jika dialog keluar terbuka, tutup dialognya
             showExitDialog = false
         } else if (selectedLaguId != null) {
             // 2. Jika sedang baca lirik, tutup liriknya
             selectedLaguId = null
         } else if (openedKategori != null) {
-            // 3. Jika sedang lihat detail kategori, kembali ke daftar kategori utama
+            // 3. Jika sedang di dalam folder kategori, kembali ke daftar kategori utama
             openedKategori = null
-        } else if (navigationHistory.size > 1) {
-            // 4. Mundur ke menu sebelumnya secara berurutan
-            navigationHistory.removeAt(navigationHistory.lastIndex)
-            selectedItem = navigationHistory.last()
+        } else if (selectedItem != 0) {
+            // 4. JIKA DI MENU 1, 2, 3, 4 -> LANGSUNG LOMPAT KE BERANDA (0)
+            selectedItem = 0
         } else {
-            // 5. Jika mentok di menu paling awal (Daftar Lagu), munculkan popup keluar
+            // 5. JIKA SUDAH DI BERANDA (0) DAN TIDAK BUKA APA-APA -> MUNCUL POPUP KELUAR
             showExitDialog = true
         }
     }
@@ -108,7 +106,7 @@ fun MainScreen(
                 Button(
                     onClick = {
                         showExitDialog = false
-                        activity?.finish() // Menutup aplikasi seutuhnya
+                        activity?.finish()
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = colorScheme.error)
                 ) {
@@ -161,20 +159,15 @@ fun MainScreen(
             CustomBottomBar(
                 selectedItem = selectedItem,
                 onItemSelected = { index ->
+                    // 1. Pindah menu (TIDAK PERLU SIMPAN RIWAYAT LAGI)
                     if (selectedItem != index) {
-                        // LOGIKA ANTI-LOOP / ANTI-DUPLIKASI RIWAYAT
-                        if (index == 0) {
-                            navigationHistory.clear()
-                            navigationHistory.add(0)
-                        } else {
-                            navigationHistory.remove(index)
-                            navigationHistory.add(index)
-                        }
                         selectedItem = index
                     } else if (index == 1) {
+                        // Fitur: Reset kategori jika diklik lagi
                         openedKategori = null
                     }
 
+                    // 2. Bersihkan overlay jika pindah menu bawah
                     selectedLaguId = null
                     if (index != 1) openedKategori = null
                 }
@@ -187,16 +180,14 @@ fun MainScreen(
             onRefresh = {
                 scope.launch {
                     isRefreshing = true
-                    // Panggil fungsi sinkronisasi dari ViewModel
                     viewModel.sinkronisasiCerdas(context)
-                    // Beri jeda animasi sedikit agar terlihat responsif
                     delay(1200)
                     isRefreshing = false
                 }
             },
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding), // Padding Scaffold pindah ke sini
+                .padding(innerPadding),
             contentAlignment = Alignment.TopCenter
         ) {
             Box(

@@ -3,7 +3,7 @@
     <style name="Theme.BukuZinuno" parent="android:Theme.Material.Light.NoActionBar" />
 
     <style name="Theme.App.Starting" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">#0D47A1</item>
+        <item name="windowSplashScreenBackground">#2B4C9B</item>
 
         <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
 

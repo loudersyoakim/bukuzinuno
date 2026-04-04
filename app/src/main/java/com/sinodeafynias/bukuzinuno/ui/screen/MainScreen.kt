@@ -10,11 +10,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -22,6 +25,8 @@ import androidx.compose.ui.unit.dp
 import com.sinodeafynias.bukuzinuno.ui.components.CustomBottomBar
 import com.sinodeafynias.bukuzinuno.ui.components.CustomTopBar
 import com.sinodeafynias.bukuzinuno.ui.viewmodel.LaguViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * 1. FUNGSI HELPER NORMALISASI TEKS
@@ -40,6 +45,7 @@ fun String.menormalisasiTeks(): String {
 /**
  * 2. MAIN SCREEN (NAVIGASI PUSAT)
  */
+@OptIn(ExperimentalMaterial3Api::class) // Ditambahkan agar bisa pakai PullToRefreshBox
 @Composable
 fun MainScreen(
     viewModel: LaguViewModel,
@@ -49,7 +55,12 @@ fun MainScreen(
     onKeepScreenOnChange: (Boolean) -> Unit
 ) {
     val activity = LocalContext.current as? Activity
+    val context = LocalContext.current
     val colorScheme = MaterialTheme.colorScheme
+    val scope = rememberCoroutineScope() // Scope untuk menjalankan animasi coroutine
+
+    // --- STATE PULL TO REFRESH ---
+    var isRefreshing by remember { mutableStateOf(false) }
 
     // --- STATE BACKSTACK (MENGINGAT RIWAYAT MENU) ---
     val navigationHistory = remember { mutableStateListOf(0) }
@@ -153,13 +164,10 @@ fun MainScreen(
                     if (selectedItem != index) {
                         // LOGIKA ANTI-LOOP / ANTI-DUPLIKASI RIWAYAT
                         if (index == 0) {
-                            // Jika klik menu utama (0), reset riwayat menjadi 0 saja
                             navigationHistory.clear()
                             navigationHistory.add(0)
                         } else {
-                            // Jika klik menu lain, hapus dari riwayat (jika sudah ada) agar tidak dobel
                             navigationHistory.remove(index)
-                            // Taruh menu tersebut di ujung riwayat terbaru
                             navigationHistory.add(index)
                         }
                         selectedItem = index
@@ -173,39 +181,57 @@ fun MainScreen(
             )
         }
     ) { innerPadding ->
-        Box(
+        // --- FITUR TARIK UNTUK REFRESH ---
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = {
+                scope.launch {
+                    isRefreshing = true
+                    // Panggil fungsi sinkronisasi dari ViewModel
+                    viewModel.sinkronisasiCerdas(context)
+                    // Beri jeda animasi sedikit agar terlihat responsif
+                    delay(1200)
+                    isRefreshing = false
+                }
+            },
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(innerPadding)
+                .padding(innerPadding), // Padding Scaffold pindah ke sini
+            contentAlignment = Alignment.TopCenter
         ) {
-            // LAYER 1: TAMPILAN DETAIL (OVERLAY)
-            if (selectedLaguId != null) {
-                DetailLaguScreen(viewModel = viewModel, laguId = selectedLaguId!!)
-            }
-            // LAYER 2: TAMPILAN MENU UTAMA
-            else {
-                when (selectedItem) {
-                    0 -> DaftarLaguScreen(
-                        viewModel = viewModel,
-                        onLaguClick = { selectedLaguId = it }
-                    )
-                    1 -> {
-                        if (openedKategori != null) {
-                            KategoriDetailScreen(viewModel, openedKategori!!, { selectedLaguId = it })
-                        } else {
-                            KategoriScreen(viewModel) { openedKategori = it }
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+            ) {
+                // LAYER 1: TAMPILAN DETAIL (OVERLAY)
+                if (selectedLaguId != null) {
+                    DetailLaguScreen(viewModel = viewModel, laguId = selectedLaguId!!)
+                }
+                // LAYER 2: TAMPILAN MENU UTAMA
+                else {
+                    when (selectedItem) {
+                        0 -> DaftarLaguScreen(
+                            viewModel = viewModel,
+                            onLaguClick = { selectedLaguId = it }
+                        )
+                        1 -> {
+                            if (openedKategori != null) {
+                                KategoriDetailScreen(viewModel, openedKategori!!, { selectedLaguId = it })
+                            } else {
+                                KategoriScreen(viewModel) { openedKategori = it }
+                            }
                         }
+                        2 -> SearchScreen(viewModel, onLaguClick = { selectedLaguId = it })
+                        3 -> FavoritScreen(viewModel, onLaguClick = { selectedLaguId = it })
+                        4 -> MenuScreen(
+                            viewModel = viewModel,
+                            isDarkMode = isDarkMode,
+                            onDarkModeChange = onDarkModeChange,
+                            isKeepScreenOn = isKeepScreenOn,
+                            onKeepScreenOnChange = onKeepScreenOnChange
+                        )
                     }
-                    2 -> SearchScreen(viewModel, onLaguClick = { selectedLaguId = it })
-                    3 -> FavoritScreen(viewModel, onLaguClick = { selectedLaguId = it })
-                    4 -> MenuScreen(
-                        viewModel = viewModel,
-                        isDarkMode = isDarkMode,
-                        onDarkModeChange = onDarkModeChange,
-                        isKeepScreenOn = isKeepScreenOn,
-                        onKeepScreenOnChange = onKeepScreenOnChange
-                    )
                 }
             }
         }

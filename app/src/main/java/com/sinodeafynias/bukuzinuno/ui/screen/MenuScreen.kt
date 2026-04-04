@@ -95,13 +95,13 @@ fun MenuScreen(
                 }
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = "Buku Zinuno",
+                    text = "Buku Zinuno AFY",
                     fontWeight = FontWeight.Black,
                     fontSize = 26.sp,
                     color = textPrimary // Ini tetap adaptif (Putih di Dark Mode, Hitam di Light Mode)
                 )
                 Text(
-                    text = "Sinode AFY Nias",
+                    text = "Sinode AFY",
                     fontSize = 14.sp,
                     color = colorScheme.primary,
                     fontWeight = FontWeight.ExtraBold
@@ -168,11 +168,11 @@ fun MenuScreen(
 
                             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                 type = "text/plain"
-                                putExtra(Intent.EXTRA_SUBJECT, "Aplikasi Buku Zinuno Sinode AFY")
+                                putExtra(Intent.EXTRA_SUBJECT, "Aplikasi Buku Zinuno AFY")
                                 // Menggabungkan teks promosi dengan Link Play Store
                                 putExtra(
                                     Intent.EXTRA_TEXT,
-                                    "Mari memuji Tuhan bersama menggunakan aplikasi Buku Zinuno Sinode AFY Nias. Dapatkan lirik lagu terlengkap di genggamanmu!\n\nUnduh sekarang di Google Play Store:\n$playStoreLink"
+                                    "Mari memuji Tuhan bersama menggunakan aplikasi Buku Zinuno Angowuloa Fa'awösa Khö Yesu (AFY). Dapatkan lirik lagu terlengkap di genggamanmu!\n\nUnduh sekarang di Google Play Store:\n$playStoreLink"
                                 )
                             }
                             context.startActivity(Intent.createChooser(shareIntent, "Bagikan melalui"))
@@ -196,7 +196,7 @@ fun MenuScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                     Image(painter = painterResource(id = R.drawable.logo_sinode), contentDescription = null, modifier = Modifier.size(70.dp))
                     Spacer(modifier = Modifier.height(12.dp))
-                    Text("Buku Zinuno", fontWeight = FontWeight.Black, fontSize = 22.sp, color = textPrimary)
+                    Text("Buku Zinuno AFY", fontWeight = FontWeight.Black, fontSize = 22.sp, color = textPrimary)
                 }
             },
             text = {

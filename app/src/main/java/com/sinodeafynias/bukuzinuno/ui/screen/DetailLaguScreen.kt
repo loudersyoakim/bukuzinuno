@@ -206,7 +206,7 @@ fun DetailLaguScreen(viewModel: LaguViewModel, laguId: String) {
                         IconButton(
                             onClick = {
                                 val shareText = buildString {
-                                    append("📖 BUKU ZINUNO SINODE AFY\n")
+                                    append("📖 BUKU ZINUNO AFY\n")
                                     append("No. ${lagu.nomor} - ${lagu.judul.uppercase()}\n")
                                     if (lagu.nada.isNotEmpty()) {
                                         append("Nada: ${lagu.nada}\n")
@@ -217,7 +217,7 @@ fun DetailLaguScreen(viewModel: LaguViewModel, laguId: String) {
                                         append("${index + 1}. $lirikBersih\n\n")
                                     }
                                     append("Mari memuji Tuhan bersama!\n")
-                                    append("Dapatkan aplikasi Buku Zinuno di Google Play Store:\n")
+                                    append("Dapatkan aplikasi Buku Zinuno AFY di Google Play Store:\n")
                                     append("https://play.google.com/store/apps/details?id=${context.packageName}")
                                 }
 

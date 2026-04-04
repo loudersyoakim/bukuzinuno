@@ -73,14 +73,12 @@ fun MainScreen(
         } else if (openedKategori != null) {
             // 3. Jika sedang lihat detail kategori, kembali ke daftar kategori utama
             openedKategori = null
-        }  else if (navigationHistory.size > 1) {
-            // Menggunakan removeAt dengan index terakhir agar support HP lama
+        } else if (navigationHistory.size > 1) {
+            // 4. Mundur ke menu sebelumnya secara berurutan
             navigationHistory.removeAt(navigationHistory.lastIndex)
-
-            // Mundur ke menu yang sekarang jadi posisi terakhir
             selectedItem = navigationHistory.last()
         } else {
-            // 5. Jika mentok di menu paling awal (biasanya Daftar Lagu), munculkan popup keluar
+            // 5. Jika mentok di menu paling awal (Daftar Lagu), munculkan popup keluar
             showExitDialog = true
         }
     }
@@ -93,7 +91,7 @@ fun MainScreen(
                 Text("Keluar Aplikasi", fontWeight = FontWeight.Black, color = colorScheme.onSurface)
             },
             text = {
-                Text("Apakah Anda yakin ingin keluar dari aplikasi Buku Zinuno?", color = colorScheme.onSurfaceVariant)
+                Text("Apakah Anda yakin ingin keluar dari aplikasi Buku Zinuno AFY?", color = colorScheme.onSurfaceVariant)
             },
             confirmButton = {
                 Button(
@@ -122,7 +120,7 @@ fun MainScreen(
             val lagu = viewModel.semuaLagu.collectAsState().value.find { it.id == selectedLaguId }
             Triple(lagu?.kategori ?: "Detail Lagu", "No. ${lagu?.nomor}. ${lagu?.judul}", true)
         }
-        selectedItem == 0 -> Triple("Buku Zinuno", "Daftar Semua Lagu", false)
+        selectedItem == 0 -> Triple("Buku Zinuno AFY", "Daftar Semua Lagu", false)
         selectedItem == 1 -> {
             if (openedKategori != null) Triple("Kategori Lagu", openedKategori!!, true)
             else Triple("Kategori Lagu", "Pilih daftar pujian", false)
@@ -133,7 +131,7 @@ fun MainScreen(
             Triple("Lagu Favorit", "$jumlahFavorit lagu disimpan", false)
         }
         selectedItem == 4 -> Triple("Menu Aplikasi", "Pengaturan & Informasi", false)
-        else -> Triple("Buku Zinuno", "Pelayanan Sinode AFY", false)
+        else -> Triple("Buku Zinuno AFY", "Pelayanan Sinode AFY", false)
     }
 
     Scaffold(
@@ -143,7 +141,6 @@ fun MainScreen(
                 subtitle = headerSubtitle,
                 showBackButton = showBack,
                 onBackClick = {
-                    // Tombol back di header mengikuti hierarki penutupan lirik/kategori
                     if (selectedLaguId != null) selectedLaguId = null
                     else if (openedKategori != null) openedKategori = null
                 }
@@ -153,17 +150,25 @@ fun MainScreen(
             CustomBottomBar(
                 selectedItem = selectedItem,
                 onItemSelected = { index ->
-                    // Catat ke riwayat hanya jika jemaat memencet menu yang BERBEDA
                     if (selectedItem != index) {
-                        navigationHistory.add(index)
+                        // LOGIKA ANTI-LOOP / ANTI-DUPLIKASI RIWAYAT
+                        if (index == 0) {
+                            // Jika klik menu utama (0), reset riwayat menjadi 0 saja
+                            navigationHistory.clear()
+                            navigationHistory.add(0)
+                        } else {
+                            // Jika klik menu lain, hapus dari riwayat (jika sudah ada) agar tidak dobel
+                            navigationHistory.remove(index)
+                            // Taruh menu tersebut di ujung riwayat terbaru
+                            navigationHistory.add(index)
+                        }
                         selectedItem = index
                     } else if (index == 1) {
-                        // Fitur Ekstra: Jika sedang di kategori dan tombol Kategori diklik lagi, reset kembali ke daftar utama
                         openedKategori = null
                     }
 
-                    selectedLaguId = null // Selalu tutup lirik jika pindah menu bawah
-                    if (index != 1) openedKategori = null // Reset folder kategori jika pindah menu
+                    selectedLaguId = null
+                    if (index != 1) openedKategori = null
                 }
             )
         }

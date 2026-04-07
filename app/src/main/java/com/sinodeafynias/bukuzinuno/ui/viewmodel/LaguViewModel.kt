@@ -25,6 +25,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.InputStreamReader
 
+// Data Class Baru untuk menampung struktur Aturan Privasi
+data class PrivacyRule(
+    val head: String,
+    val content: String
+)
+
 class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
 
     // --- DATA LOKAL (ROOM) ---
@@ -38,7 +44,7 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
         viewModelScope.launch { repository.updateFavorit(id, isFavorit) }
     }
 
-    // --- STATE APP INFO (Dinamis dari JSON & Firebase) ---
+    // --- STATE APP INFO ---
     var appDescription by mutableStateOf("")
         private set
     var churchEmail by mutableStateOf("")
@@ -50,59 +56,108 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
     var thankYouNote by mutableStateOf("")
         private set
 
-    // ==========================================
-    // SISTEM SMART SYNC (DELTA SYNC)
-    // ==========================================
+    // STATE KHUSUS PRIVACY POLICY BERSARANG
+    var privacyIntro by mutableStateOf("")
+        private set
+    var privacyLastUpdate by mutableStateOf("")
+        private set
+    var privacyRules by mutableStateOf<List<PrivacyRule>>(emptyList())
+        private set
+
     fun sinkronisasiCerdas(context: Context) {
         val prefs = context.getSharedPreferences("ZinunoPrefs", Context.MODE_PRIVATE)
 
         viewModelScope.launch {
-            // 1. TAHAP INFO APP: Jangan baca JSON terus-terusan! Cek dulu versinya.
             muatAppInfoLokalAtauPrefs(context, prefs)
             syncAppInfoRemote(prefs)
 
-            // 2. TAHAP LAGU: Cek Room, HANYA baca JSON jika database HP benar-benar kosong
             val laguSaatIni = repository.semuaLagu.first()
             if (laguSaatIni.isEmpty()) {
                 muatLaguDariJsonLokal(context, prefs)
             }
 
-            // 3. CEK UPDATE KE FIREBASE
             syncNodeLaguRemote(prefs, nodeName = "lagu", prefKey = "versi_lagu")
             syncNodeLaguRemote(prefs, nodeName = "dll", prefKey = "versi_dll")
         }
     }
 
-    // --- BACA APP INFO (ANTI AMNESIA) ---
     private fun muatAppInfoLokalAtauPrefs(context: Context, prefs: SharedPreferences) {
         val versiLokalInfo = prefs.getInt("versi_app_info", 0)
 
-        if (versiLokalInfo == 0) {
-            // JIKA BARU INSTALL: Baca dari JSON
+        // BACA DULU DARI PREFERENCES
+        appDescription = prefs.getString("app_desc", "") ?: ""
+        churchEmail = prefs.getString("app_email", "") ?: ""
+        devName = prefs.getString("app_dev", "") ?: ""
+        thankYouNote = prefs.getString("app_thanks", "") ?: ""
+        devContact = prefs.getString("app_wa", "") ?: ""
+
+        privacyIntro = prefs.getString("privacy_intro", "") ?: ""
+        privacyLastUpdate = prefs.getString("privacy_update", "") ?: ""
+
+        // Baca list Rules menggunakan Gson
+        val rulesJson = prefs.getString("privacy_rules", "[]") ?: "[]"
+        try {
+            val typeList = object : TypeToken<List<PrivacyRule>>() {}.type
+            privacyRules = Gson().fromJson(rulesJson, typeList) ?: emptyList()
+        } catch (e: Exception) {
+            privacyRules = emptyList()
+        }
+
+        // JIKA MASIH KOSONG, BACA DARI JSON
+        if (versiLokalInfo == 0 || appDescription.isEmpty()) {
             try {
                 val inputStream = context.assets.open("app_info.json")
                 val type = object : TypeToken<Map<String, Any>>() {}.type
                 val data: Map<String, Any> = Gson().fromJson(InputStreamReader(inputStream), type)
 
-                appDescription = data["description"]?.toString() ?: ""
-                churchEmail = data["email"]?.toString() ?: ""
-                devName = data["developer"]?.toString() ?: ""
-                thankYouNote = data["thanks"]?.toString() ?: ""
-                devContact = data["whatsapp"]?.toString() ?: ""
+                appDescription = data["description"]?.toString() ?: appDescription
+                churchEmail = data["email"]?.toString() ?: churchEmail
+                devName = data["developer"]?.toString() ?: devName
+                thankYouNote = data["thanks"]?.toString() ?: thankYouNote
+                devContact = data["whatsapp"]?.toString() ?: devContact
+
+                // Parsing Objek Bersarang (Nested) Privacy Policy
+                val privacyMap = data["privacy_policy"] as? Map<String, Any>
+                if (privacyMap != null) {
+                    privacyIntro = privacyMap["intro"]?.toString() ?: ""
+                    privacyLastUpdate = privacyMap["last_update"]?.toString() ?: ""
+
+                    val tempRules = mutableListOf<PrivacyRule>()
+                    // Ambil rule_1 sampai maksimal rule_10 secara otomatis
+                    for (i in 1..10) {
+                        val rule = privacyMap["rule_$i"] as? Map<String, Any>
+                        if (rule != null) {
+                            tempRules.add(
+                                PrivacyRule(
+                                    head = rule["head"]?.toString() ?: "",
+                                    content = rule["content"]?.toString() ?: ""
+                                )
+                            )
+                        }
+                    }
+                    privacyRules = tempRules
+                }
+
+                // SIMPAN KE PREFERENCES
+                prefs.edit()
+                    .putString("app_desc", appDescription)
+                    .putString("app_email", churchEmail)
+                    .putString("app_wa", devContact)
+                    .putString("app_dev", devName)
+                    .putString("app_thanks", thankYouNote)
+                    .putString("privacy_intro", privacyIntro)
+                    .putString("privacy_update", privacyLastUpdate)
+                    .putString("privacy_rules", Gson().toJson(privacyRules))
+                    .putInt("versi_app_info", 1)
+                    .apply()
+
+                Log.d("Sync", "Berhasil muat app_info.json ke Prefs dengan struktur baru")
             } catch (e: Exception) {
                 Log.e("Sync", "Gagal muat app_info.json: ${e.message}")
             }
-        } else {
-            // JIKA SUDAH PERNAH UPDATE FIREBASE: Baca dari SharedPreferences
-            appDescription = prefs.getString("app_desc", "") ?: ""
-            churchEmail = prefs.getString("app_email", "") ?: ""
-            devName = prefs.getString("app_dev", "") ?: ""
-            thankYouNote = prefs.getString("app_thanks", "") ?: ""
-            devContact = prefs.getString("app_wa", "") ?: ""
         }
     }
 
-    // --- SYNC APP INFO DARI FIREBASE ---
     private fun syncAppInfoRemote(prefs: SharedPreferences) {
         val versiLokalInfo = prefs.getInt("versi_app_info", 0)
         val infoRef = FirebaseDatabase.getInstance().getReference("app_info")
@@ -119,7 +174,29 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
                         devName = snapshot.child("developer").value?.toString() ?: devName
                         thankYouNote = snapshot.child("thanks").value?.toString() ?: thankYouNote
 
-                        // SIMPAN KE PREFS SECARA PERMANEN AGAR TIDAK HILANG SAAT REFRESH
+                        // Parsing Privacy Policy dari Firebase
+                        val privacySnap = snapshot.child("privacy_policy")
+                        if (privacySnap.exists()) {
+                            privacyIntro = privacySnap.child("intro").value?.toString() ?: privacyIntro
+                            privacyLastUpdate = privacySnap.child("last_update").value?.toString() ?: privacyLastUpdate
+
+                            val tempRules = mutableListOf<PrivacyRule>()
+                            for (i in 1..10) {
+                                val ruleSnap = privacySnap.child("rule_$i")
+                                if (ruleSnap.exists()) {
+                                    tempRules.add(
+                                        PrivacyRule(
+                                            head = ruleSnap.child("head").value?.toString() ?: "",
+                                            content = ruleSnap.child("content").value?.toString() ?: ""
+                                        )
+                                    )
+                                }
+                            }
+                            if (tempRules.isNotEmpty()) {
+                                privacyRules = tempRules
+                            }
+                        }
+
                         prefs.edit()
                             .putInt("versi_app_info", versiServer)
                             .putString("app_desc", appDescription)
@@ -127,6 +204,9 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
                             .putString("app_wa", devContact)
                             .putString("app_dev", devName)
                             .putString("app_thanks", thankYouNote)
+                            .putString("privacy_intro", privacyIntro)
+                            .putString("privacy_update", privacyLastUpdate)
+                            .putString("privacy_rules", Gson().toJson(privacyRules))
                             .apply()
 
                         Log.d("Sync", "App Info diperbarui dari Firebase ke versi $versiServer")
@@ -137,7 +217,6 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
         })
     }
 
-    // --- BACA LAGU & ONONOTA DARI ASSETS (Hanya 1x saat install) ---
     private suspend fun muatLaguDariJsonLokal(context: Context, prefs: SharedPreferences) {
         withContext(Dispatchers.IO) {
             try {
@@ -151,23 +230,17 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
                         val inputStream = context.assets.open(namaFile)
                         val daftarLagu: List<Lagu> = gson.fromJson(InputStreamReader(inputStream), tipeDaftar)
                         semuaDataDigabung.addAll(daftarLagu)
-                    } catch (e: Exception) {
-                        Log.e("Sync", "Gagal membaca $namaFile: ${e.message}")
-                    }
+                    } catch (e: Exception) { }
                 }
 
                 if (semuaDataDigabung.isNotEmpty()) {
                     repository.insertSemuaLagu(semuaDataDigabung)
                     prefs.edit().putInt("versi_lagu", 1).putInt("versi_dll", 1).apply()
-                    Log.d("Sync", "Lagu lokal berhasil diimport")
                 }
-            } catch (e: Exception) {
-                Log.e("Sync", "Gagal import lagu: ${e.message}")
-            }
+            } catch (e: Exception) { }
         }
     }
 
-    // --- SYNC LAGU/DLL DARI FIREBASE (ANTI HILANG FAVORIT) ---
     private fun syncNodeLaguRemote(prefs: SharedPreferences, nodeName: String, prefKey: String) {
         val versiLokal = prefs.getInt(prefKey, 1)
         val ref = FirebaseDatabase.getInstance().getReference(nodeName)
@@ -180,8 +253,6 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
                     viewModelScope.launch(Dispatchers.IO) {
                         val daftarLaguBaru = mutableListOf<Lagu>()
                         var versiTertinggi = versiLokal
-
-                        // AMBIL DAFTAR LAGU LOKAL UNTUK MENGECEK STATUS BINTANG
                         val daftarLaguLokal = repository.semuaLagu.first()
 
                         for (laguSnap in snapshot.children) {
@@ -194,12 +265,10 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
                             }
 
                             val idLagu = laguSnap.child("id").value?.toString() ?: ""
-
-                            // CARI LAGU INI DI HP, KALAU ADA BINTANGNYA, PERTAHANKAN!
                             val laguLama = daftarLaguLokal.find { it.id == idLagu }
                             val statusFavorit = laguLama?.isFavorit ?: false
 
-                            val lagu = Lagu(
+                            daftarLaguBaru.add(Lagu(
                                 id = idLagu,
                                 nomor_urut = laguSnap.child("nomor_urut").getValue(Int::class.java) ?: 0,
                                 nomor = laguSnap.child("nomor").value?.toString() ?: "",
@@ -208,15 +277,13 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
                                 nada = laguSnap.child("nada").value?.toString() ?: "",
                                 lirik = lirikList,
                                 version = v,
-                                isFavorit = statusFavorit // <--- KUNCI ANTI AMNESIA
-                            )
-                            daftarLaguBaru.add(lagu)
+                                isFavorit = statusFavorit
+                            ))
                         }
 
                         if (daftarLaguBaru.isNotEmpty()) {
                             repository.insertSemuaLagu(daftarLaguBaru)
                             prefs.edit().putInt(prefKey, versiTertinggi).apply()
-                            Log.d("Sync", "Sukses update ${daftarLaguBaru.size} data di '$nodeName'")
                         }
                     }
                 }

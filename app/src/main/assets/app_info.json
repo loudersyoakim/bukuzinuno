@@ -2,7 +2,23 @@
   "description": "Buku Zinuno AFY digital hadir sebagai jembatan bagi jemaat untuk memuji Tuhan dengan lebih mudah di era digital.",
   "developer": "Sinode AFY",
   "email": "sinodeafynias@gmail.com",
-  "thanks": "Terima kasih kepada Sinode AFY dan seluruh Jemaat yang telah mendukung digitalisasi Buku Zinuno ini.",
+  "privacy_policy": {
+    "intro": "Kami sangat menghargai privasi Anda. Berikut adalah pedoman utama kebijakan privasi aplikasi Buku Zinuno AFY:",
+    "last_update": "7 April 2026",
+    "rule_1": {
+      "content": "Aplikasi ini tidak memerlukan pembuatan akun dan tidak mengumpulkan data pribadi pengguna. Preferensi seperti daftar lagu favorit disimpan secara lokal di dalam perangkat Anda.",
+      "head": "Tanpa Pengumpulan Data Pribadi"
+    },
+    "rule_2": {
+      "content": "Koneksi internet semata-mata digunakan untuk menerima pembaruan lirik lagu dari server resmi Sinode, bukan untuk memantau atau mengakses data pada perangkat Anda.",
+      "head": "Penggunaan Akses Internet"
+    },
+    "rule_3": {
+      "content": "Untuk memelihara kekhusyukan ibadah, aplikasi ini disediakan sepenuhnya gratis dan bersih dari sisipan iklan komersial pihak ketiga.",
+      "head": "Pengalaman Bebas Iklan"
+    }
+  },
+  "thanks": "Terima kasih kepada Sinode AFY dan seluruh Jemaat yang telah mendukung digitalisasi Buku Zinuno ini. Syalom!",
   "version": 1,
   "whatsapp": "+6281317770717"
 }

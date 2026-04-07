@@ -2,16 +2,20 @@ package com.sinodeafynias.bukuzinuno.ui.screen
 
 import android.app.Activity
 import android.content.Intent
-import android.net.Uri
 import android.view.WindowManager
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Chat
+import androidx.compose.material.icons.automirrored.rounded.ContactSupport
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,14 +25,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.net.toUri
 import com.sinodeafynias.bukuzinuno.R
 import com.sinodeafynias.bukuzinuno.ui.viewmodel.LaguViewModel
-import androidx.compose.foundation.interaction.MutableInteractionSource
 
 @Composable
 fun MenuScreen(
@@ -40,11 +46,11 @@ fun MenuScreen(
 ) {
     val context = LocalContext.current
     val activity = context as? Activity
+    val uriHandler = LocalUriHandler.current
 
     // --- BACA MEMORI UNTUK MENGAMBIL VERSI SYNC TERAKHIR ---
     val prefs = context.getSharedPreferences("ZinunoPrefs", android.content.Context.MODE_PRIVATE)
     val versiAppInfo = prefs.getInt("versi_app_info", 1)
-
 
     // --- FITUR: LAYAR TETAP MENYALA ---
     DisposableEffect(isKeepScreenOn) {
@@ -65,7 +71,8 @@ fun MenuScreen(
 
     var showAboutDialog by remember { mutableStateOf(false) }
     var showContactDialog by remember { mutableStateOf(false) }
-    var devClickCount by remember { mutableStateOf(0) }
+    var showPrivacyDialog by remember { mutableStateOf(false) }
+    var devClickCount by remember { mutableIntStateOf(0) }
     var showDeveloperSecret by remember { mutableStateOf(false) }
 
     // --- SKEMA WARNA ADAPTIF ---
@@ -79,16 +86,18 @@ fun MenuScreen(
             .background(colorScheme.background),
         contentPadding = PaddingValues(top = 24.dp, bottom = 100.dp, start = 16.dp, end = 16.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
-    ) {// --- HEADER LOGO ---
+    ) {
+        // --- HEADER LOGO ---
         item {
             Column(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Surface(
                     modifier = Modifier.size(100.dp),
                     shape = RoundedCornerShape(28.dp),
-                    // DIUBAH: Pakai Color.White langsung agar tidak ikut jadi gelap
                     color = Color.White,
                     shadowElevation = 6.dp
                 ) {
@@ -103,7 +112,7 @@ fun MenuScreen(
                     text = "Buku Zinuno AFY",
                     fontWeight = FontWeight.Black,
                     fontSize = 26.sp,
-                    color = textPrimary // Ini tetap adaptif (Putih di Dark Mode, Hitam di Light Mode)
+                    color = textPrimary
                 )
                 Text(
                     text = "Sinode AFY",
@@ -158,23 +167,27 @@ fun MenuScreen(
                     )
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 24.dp), thickness = 1.dp, color = colorScheme.outlineVariant)
                     MenuClickableItem(
-                        icon = Icons.Rounded.ContactSupport,
+                        icon = Icons.AutoMirrored.Rounded.ContactSupport,
                         title = "Hubungi Kami",
                         onClick = { showContactDialog = true }
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 24.dp), thickness = 1.dp, color = colorScheme.outlineVariant)
+                    MenuClickableItem(
+                        icon = Icons.Rounded.PrivacyTip,
+                        title = "Kebijakan Privasi",
+                        onClick = { showPrivacyDialog = true }
                     )
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 24.dp), thickness = 1.dp, color = colorScheme.outlineVariant)
                     MenuClickableItem(
                         icon = Icons.Rounded.Share,
                         title = "Bagikan Aplikasi",
                         onClick = {
-                            // Mengambil package name secara otomatis (com.sinodeafynias.bukuzinuno)
                             val appPackageName = context.packageName
                             val playStoreLink = "https://play.google.com/store/apps/details?id=$appPackageName"
 
                             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                 type = "text/plain"
                                 putExtra(Intent.EXTRA_SUBJECT, "Aplikasi Buku Zinuno AFY")
-                                // Menggabungkan teks promosi dengan Link Play Store
                                 putExtra(
                                     Intent.EXTRA_TEXT,
                                     "Mari memuji Tuhan bersama menggunakan aplikasi Buku Zinuno Angowuloa Fa'awösa Khö Yesu (AFY). Dapatkan lirik lagu terlengkap di genggamanmu!\n\nUnduh sekarang di Google Play Store:\n$playStoreLink"
@@ -186,6 +199,8 @@ fun MenuScreen(
                 }
             }
         }
+
+        // --- FOOTER VERSI & COPYRIGHT ---
         item {
             Column(
                 modifier = Modifier
@@ -193,7 +208,6 @@ fun MenuScreen(
                     .padding(top = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Teks Versi Dinamis (Format: v1.[versi_app_info].[versi_df_info])
                 Text(
                     text = "Versi 1.$versiAppInfo",
                     fontSize = 12.sp,
@@ -201,10 +215,7 @@ fun MenuScreen(
                     color = colorScheme.outline,
                     letterSpacing = 1.sp
                 )
-
                 Spacer(modifier = Modifier.height(4.dp))
-
-                // Teks Copyright
                 Text(
                     text = "© 2026 Sinode AFY. Hak Cipta Dilindungi.",
                     fontSize = 12.sp,
@@ -234,13 +245,11 @@ fun MenuScreen(
             text = {
                 Column(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally, // Agar semua konten rata tengah
+                    horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    // Deskripsi Aplikasi
                     Text(appDescription, fontSize = 15.sp, color = textSecondary, textAlign = TextAlign.Center, lineHeight = 22.sp)
 
-                    // Ucapan Terima Kasih (Tanpa kotak warna, dibuat simpel dan menyatu)
                     if (thankYouNote.isNotEmpty()) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("Ucapan Terima Kasih:", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = textPrimary)
@@ -255,12 +264,12 @@ fun MenuScreen(
                             .clip(RoundedCornerShape(8.dp))
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
-                                indication = null // Menghilangkan efek abu-abu saat di-tap cepat
+                                indication = null
                             ) {
                                 devClickCount++
                                 if (devClickCount >= 10) {
                                     showDeveloperSecret = true
-                                    devClickCount = 0 // Reset hitungan
+                                    devClickCount = 0
                                 }
                             }
                             .padding(8.dp)
@@ -289,22 +298,21 @@ fun MenuScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Hubungi kami langsung melalui tombol di bawah:", fontSize = 14.sp, color = textSecondary)
 
-                    // Card WhatsApp (Warna Hijau WhatsApp)
                     Card(
-                        modifier = Modifier.fillMaxWidth().clickable {
-                            val cleanContact = devContact.replace("+", "").replace(" ", "")
-                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$cleanContact")))
-                        },
-                        // Container menggunakan Hijau WhatsApp dengan sedikit transparansi atau Solid
-                        colors = CardDefaults.cardColors(
-                            containerColor = Color(0xFF25D366).copy(alpha = 0.15f)
-                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                val cleanContact = devContact
+                                    .replace("+", "")
+                                    .replace(" ", "")
+                                context.startActivity(Intent(Intent.ACTION_VIEW, "https://wa.me/$cleanContact".toUri()))
+                            },
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF25D366).copy(alpha = 0.15f)),
                         shape = RoundedCornerShape(20.dp),
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF25D366).copy(alpha = 0.3f))
                     ) {
                         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            // Ikon Hijau Pekat
-                            Icon(Icons.Rounded.Chat, null, tint = Color(0xFF075E54), modifier = Modifier.size(30.dp))
+                            Icon(Icons.AutoMirrored.Rounded.Chat, null, tint = Color(0xFF075E54), modifier = Modifier.size(30.dp))
                             Spacer(modifier = Modifier.width(16.dp))
                             Column {
                                 Text("WhatsApp Resmi", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF075E54))
@@ -313,19 +321,17 @@ fun MenuScreen(
                         }
                     }
 
-                    // Card Email (Warna Merah/Biru Email)
                     Card(
-                        modifier = Modifier.fillMaxWidth().clickable {
-                            context.startActivity(Intent(Intent.ACTION_SENDTO).apply { data = Uri.parse("mailto:$churchEmail") })
-                        },
-                        colors = CardDefaults.cardColors(
-                            containerColor = Color(0xFF4285F4).copy(alpha = 0.15f) // Biru Google
-                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                context.startActivity(Intent(Intent.ACTION_SENDTO).apply { data = "mailto:$churchEmail".toUri() })
+                            },
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF4285F4).copy(alpha = 0.15f)),
                         shape = RoundedCornerShape(20.dp),
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF4285F4).copy(alpha = 0.3f))
                     ) {
                         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            // Ikon Biru Pekat
                             Icon(Icons.Rounded.AlternateEmail, null, tint = Color(0xFF1967D2), modifier = Modifier.size(30.dp))
                             Spacer(modifier = Modifier.width(16.dp))
                             Column {
@@ -340,6 +346,68 @@ fun MenuScreen(
             containerColor = colorScheme.surface
         )
     }
+
+    // --- DIALOG: KEBIJAKAN PRIVASI ---
+    if (showPrivacyDialog) {
+        AlertDialog(
+            onDismissRequest = { showPrivacyDialog = false },
+            confirmButton = {
+                TextButton(onClick = { showPrivacyDialog = false }) {
+                    Text("Tutup", fontWeight = FontWeight.Black, color = colorScheme.primary)
+                }
+            },
+            title = { Text("Kebijakan Privasi", fontWeight = FontWeight.Black, color = textPrimary) },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // Header & Intro
+                    Text(
+                        text = "Pembaruan Terakhir: ${viewModel.privacyLastUpdate}\n\n${viewModel.privacyIntro}",
+                        fontSize = 14.sp,
+                        color = textSecondary,
+                        lineHeight = 22.sp
+                    )
+
+                    // Looping Otomatis Semua Aturan (rule_1, rule_2, dst)
+                    viewModel.privacyRules.forEach { rule ->
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            // Judul (Head) dibuat BOLD
+                            Text(rule.head, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = textPrimary)
+                            // Isi (Content) biasa
+                            Text(rule.content, fontSize = 14.sp, color = textSecondary, lineHeight = 20.sp)
+                        }
+                    }
+
+                    // --- OPEN SOURCE (Tetap Hardcode karena ada link interaktif) ---
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Transparansi Kode (Open Source)", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = textPrimary)
+                        Text("Segala kode sumber aplikasi ini bersifat terbuka dan dapat diakses secara transparan oleh publik. Anda dapat melihat repositorinya dengan menekan tautan di bawah ini:", fontSize = 14.sp, color = textSecondary, lineHeight = 20.sp)
+
+                        Text(
+                            text = "Klik di sini untuk membuka GitHub",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = colorScheme.primary,
+                            textDecoration = TextDecoration.Underline,
+                            modifier = Modifier
+                                .padding(top = 4.dp)
+                                .clickable {
+                                    uriHandler.openUri("https://github.com/loudersyoakim/bukuzinuno")
+                                }
+                        )
+                    }
+                }
+            },
+            shape = RoundedCornerShape(32.dp),
+            containerColor = colorScheme.surface
+        )
+    }
+
+    // --- DIALOG: DEVELOPER SECRET ---
     if (showDeveloperSecret) {
         AlertDialog(
             onDismissRequest = { showDeveloperSecret = false },
@@ -354,18 +422,15 @@ fun MenuScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    // --- FOTO PROFIL (MEMAKAI GAMBAR ASLI) ---
                     Surface(
                         modifier = Modifier.size(90.dp),
-                        shape = CircleShape, // Tetap bulat sempurna
+                        shape = CircleShape,
                         color = Color.White,
                         border = androidx.compose.foundation.BorderStroke(2.dp, Color.White)
                     ) {
                         Image(
-                            // Memanggil foto dari drawable
                             painter = painterResource(id = R.drawable.foto_louders),
                             contentDescription = "Foto Profil Louders Yoakim",
-                            // RAHASIA AGAR FOTO PAS: Melakukan Crop agar foto mengisi penuh lingkaran
                             contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                             modifier = Modifier.fillMaxSize()
                         )
@@ -382,9 +447,8 @@ fun MenuScreen(
 
                     HorizontalDivider(modifier = Modifier.padding(horizontal = 24.dp), color = colorScheme.outlineVariant)
 
-                    // --- DAFTAR KONTAK (RATA TENGAH, MINIMALIS, TANPA IKON) ---
                     Column(
-                        horizontalAlignment = Alignment.CenterHorizontally, // Bikin semua teks ke tengah
+                        horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -395,7 +459,7 @@ fun MenuScreen(
                             color = textSecondary
                         )
                         Text(
-                            text = "WA: +62 852-6026-9861", // Diberi spasi agar lebih enak dibaca
+                            text = "WA: +62 852-6026-9861",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             color = textSecondary
@@ -430,7 +494,9 @@ fun MenuSectionTitle(title: String) {
 @Composable
 fun MenuSwitchItem(icon: ImageVector, title: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 20.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 20.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(26.dp))
@@ -451,44 +517,15 @@ fun MenuSwitchItem(icon: ImageVector, title: String, checked: Boolean, onChecked
 @Composable
 fun MenuClickableItem(icon: ImageVector, title: String, onClick: () -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().clickable { onClick() }.padding(horizontal = 24.dp, vertical = 22.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(horizontal = 24.dp, vertical = 22.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(26.dp))
         Spacer(modifier = Modifier.width(16.dp))
         Text(text = title, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurface)
         Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(24.dp))
-    }
-}
-@Composable
-fun DeveloperContactItem(icon: ImageVector, text: String) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Surface(
-            shape = CircleShape,
-            // BACKGROUND LINGKARAN:
-            // Terang -> Hitam | Gelap -> Putih
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.size(36.dp)
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                // WARNA IKON:
-                // Terang -> Putih | Gelap -> Hitam
-                tint = MaterialTheme.colorScheme.surface,
-                modifier = Modifier.padding(8.dp)
-            )
-        }
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(
-            text = text,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Bold,
-            // WARNA TEKS: Otomatis Hitam/Putih menyesuaikan tema
-            color = MaterialTheme.colorScheme.onSurface
-        )
     }
 }

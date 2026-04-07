@@ -7,10 +7,10 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
 @Database(entities = [Lagu::class], version = 1, exportSchema = false)
-@TypeConverters(Converters::class) // <--- INI WAJIB ADA AGAR LIST<STRING> BISA DISIMPAN
+@TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
 
-    abstract fun laguDao(): LaguDao // <--- PASTIKAN TULISANNYA BEGINI
+    abstract fun laguDao(): LaguDao
 
     companion object {
         @Volatile
@@ -23,7 +23,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "lagu_database"
                 )
-                    // Jika kamu pernah run aplikasi sebelumnya, ini akan mencegah crash kalau struktur berubah
+
                     .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance

@@ -36,10 +36,20 @@ fun DaftarLaguScreen(
 
     val laguDitampilkan = remember(daftarLagu, searchQuery) {
         daftarLagu.filter { lagu ->
+            // --- FILTER: BUANG KATEGORI ONÖNÖTA ---
+            // Kita abaikan besar/kecil huruf untuk lebih aman
+            if (lagu.kategori.equals("ONÖNÖTA", ignoreCase = true) ||
+                lagu.kategori.equals("ONONOTA", ignoreCase = true)) {
+                return@filter false // Lewati item ini, jangan ditampilkan!
+            }
+
+            // --- FILTER: PENCARIAN (SEARCH) ---
             if (searchQuery.isEmpty()) return@filter true
+
             val queryBersih = searchQuery.menormalisasiTeks().lowercase(Locale.getDefault())
             val judulBersih = lagu.judul.menormalisasiTeks().lowercase(Locale.getDefault())
             val nomorBersih = lagu.nomor.menormalisasiTeks().lowercase(Locale.getDefault())
+
             judulBersih.contains(queryBersih) || nomorBersih.contains(queryBersih)
         }
     }

@@ -1,5 +1,8 @@
 package com.sinodeafynias.bukuzinuno.ui.components
 
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -7,11 +10,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue // MANDATORY for 'by' delegation
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color // MANDATORY for Color.White
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
@@ -95,6 +99,20 @@ fun CustomBottomBar(
     val notchPx  = with(density) { 40.dp.toPx() } // Jarak radius lekukan
     val depthPx  = with(density) { 45.dp.toPx() } // Kedalaman lekukan
 
+    val isSearchSelected = selectedItem == 2
+
+    // Animasi Ukuran: Membesar sedikit saat dipilih
+    val fabScale by animateFloatAsState(
+        targetValue = if (isSearchSelected) 1.15f else 1f,
+        label = "scale"
+    )
+
+    // Animasi Elevasi: Naik sedikit saat dipilih
+    val fabElevation by animateDpAsState(
+        targetValue = if (isSearchSelected) 18.dp else 12.dp,
+        label = "elevation"
+    )
+
     val barShape = DeepNotchBarShape(
         cornerRadius = cornerPx,
         notchRadius  = notchPx,
@@ -134,16 +152,18 @@ fun CustomBottomBar(
             }
         }
 
-        // ── 2. TOMBOL SEARCH RAKSASA (FLOATING HIGH) ──
+        // ── 2. TOMBOL SEARCH RAKSASA (ANIMATED & GLOW) ──
         Surface(
             modifier = Modifier
-                .size(fabSize)
+                .size(fabSize * fabScale) // Ukuran mengikuti animasi scale
                 .offset(y = -fabLift),
             shape = CircleShape,
-            color = MaterialTheme.colorScheme.primary,
-            shadowElevation = 12.dp
+            // Jika aktif, warnanya bisa sedikit lebih terang atau tetap primary
+            color = if (isSearchSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary,
+            shadowElevation = fabElevation,
+            // Tambahkan Border Glow tipis jika sedang aktif
+            border = if (isSearchSelected) BorderStroke(2.dp, Color.White.copy(alpha = 0.5f)) else null
         ) {
-            // Berikan sedikit hiasan inner glow tipis
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
@@ -155,7 +175,8 @@ fun CustomBottomBar(
                     Icon(
                         imageVector = Icons.Rounded.Search,
                         contentDescription = "Cari",
-                        tint = MaterialTheme.colorScheme.onPrimary,
+                        // Warna icon berubah menyesuaikan container
+                        tint = if (isSearchSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(36.dp)
                     )
                 }

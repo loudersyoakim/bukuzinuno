@@ -29,4 +29,6 @@ interface LaguDao {
     @Query("UPDATE lagu SET isFavorit = :status WHERE id = :idLagu")
     suspend fun updateFavorit(idLagu: String, status: Boolean)
 
+    @Query("SELECT * FROM lagu")
+    suspend fun getSemuaLaguList(): List<Lagu>
 }

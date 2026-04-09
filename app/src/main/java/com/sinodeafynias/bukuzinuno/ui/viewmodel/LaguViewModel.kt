@@ -19,13 +19,12 @@ import com.sinodeafynias.bukuzinuno.data.repository.LaguRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.InputStreamReader
 
-// Data Class Baru untuk menampung struktur Aturan Privasi
+// Data Class untuk menampung struktur Aturan Privasi
 data class PrivacyRule(
     val head: String,
     val content: String
@@ -68,14 +67,17 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
         val prefs = context.getSharedPreferences("ZinunoPrefs", Context.MODE_PRIVATE)
 
         viewModelScope.launch {
+            // 1. TAHAP INFO APP
             muatAppInfoLokalAtauPrefs(context, prefs)
             syncAppInfoRemote(prefs)
 
-            val laguSaatIni = repository.semuaLagu.first()
-            if (laguSaatIni.isEmpty()) {
+            // 2. TAHAP LAGU: Cek via SharedPreferences (Bukan via Database agar INSTAN)
+            val isFirstInstallLagu = prefs.getInt("versi_lagu", 0) == 0
+            if (isFirstInstallLagu) {
                 muatLaguDariJsonLokal(context, prefs)
             }
 
+            // 3. CEK UPDATE KE FIREBASE
             syncNodeLaguRemote(prefs, nodeName = "lagu", prefKey = "versi_lagu")
             syncNodeLaguRemote(prefs, nodeName = "dll", prefKey = "versi_dll")
         }
@@ -123,7 +125,6 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
                     privacyLastUpdate = privacyMap["last_update"]?.toString() ?: ""
 
                     val tempRules = mutableListOf<PrivacyRule>()
-                    // Ambil rule_1 sampai maksimal rule_10 secara otomatis
                     for (i in 1..10) {
                         val rule = privacyMap["rule_$i"] as? Map<String, Any>
                         if (rule != null) {
@@ -168,6 +169,12 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
                     val versiServer = snapshot.child("version").getValue(Int::class.java) ?: 1
 
                     if (versiServer > versiLokalInfo || versiLokalInfo == 0) {
+
+                        // TOMBOL NUKLIR: Jika Admin menaikkan versi app_info, paksa sinkronisasi ulang lirik lagu
+                        if (versiLokalInfo != 0) {
+                            prefs.edit().putInt("versi_lagu", 0).putInt("versi_dll", 0).apply()
+                        }
+
                         appDescription = snapshot.child("description").value?.toString() ?: appDescription
                         churchEmail = snapshot.child("email").value?.toString() ?: churchEmail
                         devContact = snapshot.child("whatsapp").value?.toString() ?: devContact
@@ -253,7 +260,9 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
                     viewModelScope.launch(Dispatchers.IO) {
                         val daftarLaguBaru = mutableListOf<Lagu>()
                         var versiTertinggi = versiLokal
-                        val daftarLaguLokal = repository.semuaLagu.first()
+
+                        // GUNAKAN QUERY INSTAN AGAR BINTANG FAVORIT TIDAK HILANG
+                        val daftarLaguLokal = repository.getSemuaLaguList()
 
                         for (laguSnap in snapshot.children) {
                             val v = laguSnap.child("version").getValue(Int::class.java) ?: 1
@@ -284,6 +293,7 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
                         if (daftarLaguBaru.isNotEmpty()) {
                             repository.insertSemuaLagu(daftarLaguBaru)
                             prefs.edit().putInt(prefKey, versiTertinggi).apply()
+                            Log.d("Sync", "Sukses update data di '$nodeName'")
                         }
                     }
                 }

@@ -27,4 +27,8 @@ class LaguRepository(private val laguDao: LaguDao) { // <--- Sudah diganti jadi 
             laguDao.insertSemuaLagu(lagu)
         }
     }
+
+    suspend fun getSemuaLaguList(): List<Lagu> {
+        return laguDao.getSemuaLaguList()
+    }
 }

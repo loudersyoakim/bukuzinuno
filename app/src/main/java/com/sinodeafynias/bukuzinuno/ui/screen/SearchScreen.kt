@@ -18,6 +18,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester // TAMBAHAN IMPORT
+import androidx.compose.ui.focus.focusRequester // TAMBAHAN IMPORT
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalFocusManager
@@ -37,6 +39,15 @@ fun SearchScreen(
     val daftarLagu by viewModel.semuaLagu.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
     val focusManager = LocalFocusManager.current
+
+    // 1. BUAT PENANDA FOKUS
+    val focusRequester = remember { FocusRequester() }
+
+    // 2. PICU FOKUS SAAT LAYAR DIBUKA
+    // LaunchedEffect(Unit) memastikan perintah ini hanya berjalan sekali saat layar pertama kali muncul
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
 
     val hasilPencarian = remember(searchQuery, daftarLagu) {
         if (searchQuery.trim().isEmpty()) emptyList()
@@ -82,7 +93,9 @@ fun SearchScreen(
                         BasicTextField(
                             value = searchQuery,
                             onValueChange = { searchQuery = it },
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier
+                                .weight(1f)
+                                .focusRequester(focusRequester), // 3. TEMPELKAN PENANDA KE TEXTFIELD
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                             keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),

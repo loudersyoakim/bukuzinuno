@@ -13,6 +13,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -27,27 +28,29 @@ fun CustomTopBar(
 ) {
     val colorScheme = MaterialTheme.colorScheme
 
-    // RAHASIA ESTETIK 1: Gradient Vertikal Halus
-    // Dari warna primary ke warna yang sedikit lebih gelap agar punya "kedalaman"
+    // --- DETEKSI OTOMATIS BARIS TEKS ---
+    // Jika title mengandung karakter "\n", berarti ini adalah menu "Daftar Semua Lagu"
+    val isTitleDuaBaris = title.contains("\n")
+
     val gradientBrush = Brush.verticalGradient(
         colors = listOf(
             colorScheme.primary,
-            colorScheme.primary.copy(alpha = 0.9f)
+            colorScheme.primary //.copy(alpha = 0.9f)
         )
     )
 
     Surface(
-        // RAHASIA ESTETIK 2: Berikan lengkungan halus di bagian bawah (Bottom Corners)
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)),
         shadowElevation = 12.dp,
-        color = Color.Transparent // Kita pakai background gradient di bawahnya
+        color = Color.Transparent
     ) {
         Box(
             modifier = Modifier
                 .background(gradientBrush)
-                .statusBarsPadding() // Menangani area notch/batere di HP modern
+                .statusBarsPadding()
+                // Tambah padding vertikal agar lebih lega ke bawah
                 .padding(vertical = 8.dp)
         ) {
             CenterAlignedTopAppBar(
@@ -59,18 +62,22 @@ fun CustomTopBar(
                         Text(
                             text = title,
                             fontWeight = FontWeight.Black,
-                            fontSize = 20.sp,
+                            // UBAH UKURAN FONT SECARA DINAMIS DI SINI:
+                            // Jika 2 baris jadi 16.sp, jika 1 baris tetap besar (20.sp)
+                            fontSize = if (isTitleDuaBaris) 16.sp else 20.sp,
+                            lineHeight = if (isTitleDuaBaris) 20.sp else 28.sp,
                             letterSpacing = 0.5.sp,
+                            textAlign = TextAlign.Center, // Wajib agar rata tengah
                             color = colorScheme.onPrimary,
-                            maxLines = 1,
+                            maxLines = 2, // Wajib 2 agar \n bisa terbaca
                             overflow = TextOverflow.Ellipsis
                         )
                         if (subtitle.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = subtitle,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Medium,
-                                // RAHASIA ESTETIK 3: Subtitle jangan terlalu terang
                                 color = colorScheme.onPrimary.copy(alpha = 0.7f),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -85,7 +92,6 @@ fun CustomTopBar(
                             onClick = onBackClick,
                             modifier = Modifier.padding(start = 8.dp)
                         ) {
-                            // Pakai Ikon IosNew agar terlihat lebih modern/premium
                             Icon(
                                 imageVector = Icons.Rounded.ArrowBackIosNew,
                                 contentDescription = "Kembali",
@@ -95,14 +101,13 @@ fun CustomTopBar(
                         }
                     }
                 },
-                // Tambahkan aksi kosong di kanan agar judul benar-benar di tengah secara visual
                 actions = {
                     if (showBackButton) {
                         Spacer(modifier = Modifier.width(48.dp))
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color.Transparent // Biar gradient-nya kelihatan
+                    containerColor = Color.Transparent
                 )
             )
         }

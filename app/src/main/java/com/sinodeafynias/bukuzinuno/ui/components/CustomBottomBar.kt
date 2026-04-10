@@ -10,12 +10,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue // MANDATORY for 'by' delegation
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color // MANDATORY for Color.White
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
@@ -24,9 +24,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.*
 
-// ─────────────────────────────────────────────
-// Shape Kustom: Bar dengan Lekukan Bulat Sempurna (Deep Notch)
-// ─────────────────────────────────────────────
 class DeepNotchBarShape(
     private val cornerRadius: Float,
     private val notchRadius: Float,
@@ -43,34 +40,27 @@ class DeepNotchBarShape(
         val h = size.height
         val cx = w / 2f
         val r = cornerRadius
-        val nr = notchRadius // Radius lekukan (lebar)
-        val nd = notchDepth  // Kedalaman lekukan
+        val nr = notchRadius
+        val nd = notchDepth
 
         return Path().apply {
             moveTo(0f, r)
-            // Pojok kiri atas
             quadraticBezierTo(0f, 0f, r, 0f)
 
-            // --- MULAI LEKUKAN NOTCH (SMOOTH TRANSITION) ---
-            // Garis datar sebelum notch
             lineTo(cx - (nr * 1.5f), 0f)
 
-            // Kurva masuk ke dalam notch (Ujung Notch Halus Kiri)
             cubicTo(
                 x1 = cx - nr, y1 = 0f,
                 x2 = cx - nr, y2 = nd,
                 x3 = cx, y3 = nd
             )
 
-            // Kurva keluar dari notch (Ujung Notch Halus Kanan)
             cubicTo(
                 x1 = cx + nr, y1 = nd,
                 x2 = cx + nr, y2 = 0f,
                 x3 = cx + (nr * 1.5f), y3 = 0f
             )
-            // --- SELESAI LEKUKAN NOTCH ---
 
-            // Garis ke pojok kanan atas
             lineTo(w - r, 0f)
             quadraticBezierTo(w, 0f, w, r)
 
@@ -87,27 +77,24 @@ fun CustomBottomBar(
     onItemSelected: (Int) -> Unit
 ) {
     val density = LocalDensity.current
+    val colorScheme = MaterialTheme.colorScheme
+    val onPrimary = colorScheme.onPrimary // Ambil warna onPrimary untuk digunakan di tombol tengah
 
-    // Dimensi Tombol & Bar
-    val fabSize = 64.dp         // Ukuran FAB standar (lebih rapi)
-    val fabLift = 60.dp         // Setengah dari fabSize agar center di garis bar
+    val fabSize = 64.dp
+    val fabLift = 60.dp
     val barHeight = 100.dp
 
-    // Konfigurasi Notch agar "Membungkus"
-    // notchRadius harus sedikit lebih besar dari (fabSize / 2) agar ada celah (clearance)
     val cornerPx = with(density) { 20.dp.toPx() }
-    val notchPx  = with(density) { 40.dp.toPx() } // Jarak radius lekukan
-    val depthPx  = with(density) { 45.dp.toPx() } // Kedalaman lekukan
+    val notchPx  = with(density) { 40.dp.toPx() }
+    val depthPx  = with(density) { 45.dp.toPx() }
 
     val isSearchSelected = selectedItem == 2
 
-    // Animasi Ukuran: Membesar sedikit saat dipilih
     val fabScale by animateFloatAsState(
         targetValue = if (isSearchSelected) 1.15f else 1f,
         label = "scale"
     )
 
-    // Animasi Elevasi: Naik sedikit saat dipilih
     val fabElevation by animateDpAsState(
         targetValue = if (isSearchSelected) 18.dp else 12.dp,
         label = "elevation"
@@ -131,8 +118,8 @@ fun CustomBottomBar(
                 .fillMaxWidth()
                 .height(barHeight),
             shape = barShape,
-            color = MaterialTheme.colorScheme.primary,
-            shadowElevation = 15.dp // Shadow mengikuti lekukan notch
+            color = colorScheme.primary,
+            shadowElevation = 15.dp
         ) {
             Row(
                 modifier = Modifier
@@ -145,7 +132,6 @@ fun CustomBottomBar(
                 BottomBarItem("Daftar", Icons.Rounded.QueueMusic, selectedItem == 0) { onItemSelected(0) }
                 BottomBarItem("Kategori", Icons.Rounded.GridView, selectedItem == 1) { onItemSelected(1) }
 
-                // Spacer mengikuti lebar parit (notch)
                 Spacer(Modifier.width(90.dp))
                 BottomBarItem("Favorit", Icons.Rounded.Star, selectedItem == 3) { onItemSelected(3) }
                 BottomBarItem("Menu", Icons.Rounded.Menu, selectedItem == 4) { onItemSelected(4) }
@@ -155,13 +141,11 @@ fun CustomBottomBar(
         // ── 2. TOMBOL SEARCH RAKSASA (ANIMATED & GLOW) ──
         Surface(
             modifier = Modifier
-                .size(fabSize * fabScale) // Ukuran mengikuti animasi scale
+                .size(fabSize * fabScale)
                 .offset(y = -fabLift),
             shape = CircleShape,
-            // Jika aktif, warnanya bisa sedikit lebih terang atau tetap primary
-            color = if (isSearchSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary,
+            color = colorScheme.primary,
             shadowElevation = fabElevation,
-            // Tambahkan Border Glow tipis jika sedang aktif
             border = if (isSearchSelected) BorderStroke(2.dp, Color.White.copy(alpha = 0.5f)) else null
         ) {
             Box(
@@ -175,8 +159,8 @@ fun CustomBottomBar(
                     Icon(
                         imageVector = Icons.Rounded.Search,
                         contentDescription = "Cari",
-                        // Warna icon berubah menyesuaikan container
-                        tint = if (isSearchSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onPrimary,
+                        // PERUBAHAN DI SINI: Menyamakan logika warna dengan BottomBarItem
+                        tint = if (isSearchSelected) onPrimary else onPrimary.copy(alpha = 0.4f),
                         modifier = Modifier.size(36.dp)
                     )
                 }

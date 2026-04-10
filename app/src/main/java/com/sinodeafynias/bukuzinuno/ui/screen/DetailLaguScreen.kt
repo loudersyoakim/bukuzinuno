@@ -1,15 +1,10 @@
 package com.sinodeafynias.bukuzinuno.ui.screen
 
 import android.content.Intent
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.*
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -17,11 +12,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.KeyboardArrowUp
-import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material.icons.rounded.Star
-import androidx.compose.material.icons.rounded.StarBorder
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -33,22 +24,27 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sinodeafynias.bukuzinuno.ui.viewmodel.LaguViewModel
 
 @Composable
-fun DetailLaguScreen(viewModel: LaguViewModel, laguId: String) {
+fun DetailLaguScreen(
+    viewModel: LaguViewModel,
+    laguId: String,
+    onNavigate: (String) -> Unit
+) {
     val daftarLagu by viewModel.semuaLagu.collectAsState()
-    val lagu = daftarLagu.find { it.id == laguId }
     val context = LocalContext.current
 
-    // STATE ZOOM (Default 19sp)
-    var fontScale by remember { mutableStateOf(19f) }
+    val currentIndex = daftarLagu.indexOfFirst { it.id == laguId }
+    val lagu = daftarLagu.getOrNull(currentIndex)
+    val prevLagu = daftarLagu.getOrNull(currentIndex - 1)
+    val nextLagu = daftarLagu.getOrNull(currentIndex + 1)
 
-    // STATE UNTUK MENU MELAYANG (Expandable FAB)
+    var fontScale by remember { mutableStateOf(19f) }
     var isMenuExpanded by remember { mutableStateOf(false) }
-    // Animasi putaran panah (0 derajat saat nutup, 180 derajat / nunjuk bawah saat buka)
     val iconRotation by animateFloatAsState(
         targetValue = if (isMenuExpanded) 180f else 0f,
         label = "fab_rotation"
@@ -64,19 +60,17 @@ fun DetailLaguScreen(viewModel: LaguViewModel, laguId: String) {
             .background(colorScheme.background)
             .pointerInput(Unit) {
                 detectTransformGestures { _, _, zoom, _ ->
-                    val newSize = fontScale * zoom
-                    fontScale = newSize.coerceIn(15f, 45f)
+                    fontScale = (fontScale * zoom).coerceIn(15f, 45f)
                 }
             }
     ) {
+        // ── 1. KONTEN LIRIK ──
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp, vertical = 32.dp)
         ) {
-
-            // 1. HEADER
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -100,7 +94,6 @@ fun DetailLaguScreen(viewModel: LaguViewModel, laguId: String) {
 
             Spacer(modifier = Modifier.height(18.dp))
 
-            // INFO NADA
             if (lagu.nada.isNotEmpty()) {
                 Surface(
                     color = colorScheme.primary.copy(alpha = 0.1f),
@@ -130,11 +123,9 @@ fun DetailLaguScreen(viewModel: LaguViewModel, laguId: String) {
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 2. LIRIK
             Column(modifier = Modifier.fillMaxWidth()) {
                 lagu.lirik.forEachIndexed { index, bait ->
                     val lirikBersih = bait.replaceFirst("^\\d+\\.\\s*".toRegex(), "")
-
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -149,7 +140,6 @@ fun DetailLaguScreen(viewModel: LaguViewModel, laguId: String) {
                             color = colorScheme.primary,
                             modifier = Modifier.width((fontScale * 1.6f).dp)
                         )
-
                         Text(
                             text = lirikBersih,
                             fontSize = fontScale.sp,
@@ -171,32 +161,31 @@ fun DetailLaguScreen(viewModel: LaguViewModel, laguId: String) {
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
             )
-            Spacer(modifier = Modifier.height(140.dp))
+            // Ruang ekstra agar konten tidak tertutup elemen bawah
+            Spacer(modifier = Modifier.height(200.dp))
         }
 
-        // 3. EXPANDABLE FAB (MENU MELAYANG BUKA-TUTUP SEPERTI LIDAH)
+        // ── 2. FAB MENU LIDAH (MENGAMBANG BEBAS) ──
         Box(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(24.dp)
-                .padding(bottom = 16.dp),
-            contentAlignment = Alignment.BottomCenter // Kunci di tengah-bawah
+                // Memberikan jarak dari bawah agar tepat berada di atas Bilah Navigasi
+                .padding(end = 24.dp, bottom = 50.dp),
+            contentAlignment = Alignment.BottomCenter // Kunci di tengah-bawah agar lidah keluar dari dalam
         ) {
-
             // --- ANAK MENU (LIDAH KAPSUL) ---
             AnimatedVisibility(
                 visible = isMenuExpanded,
-                // RAHASIA LIDAH ASLI: Mengembang (expand) dari bawah ke atas, menyusut (shrink) ke bawah
+                // RAHASIA LIDAH ASLI: Mengembang dari bawah ke atas
                 enter = fadeIn() + expandVertically(expandFrom = Alignment.Bottom),
                 exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Bottom),
-                // Padding ini untuk memposisikan dasar lidah tepat di belakang tengah-tengah tombol utama
+                // Padding ini memposisikan dasar lidah tepat di belakang FAB
                 modifier = Modifier.padding(bottom = 28.dp)
             ) {
                 Surface(
-                    // Bentuk lidah
                     shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp, bottomStart = 16.dp, bottomEnd = 16.dp),
                     color = colorScheme.surface,
-                    shadowElevation = 4.dp // Lebih rendah dari tombol utama
+                    shadowElevation = 4.dp // Lebih rendah dari FAB utama
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -278,6 +267,122 @@ fun DetailLaguScreen(viewModel: LaguViewModel, laguId: String) {
                         .size(32.dp)
                         .rotate(iconRotation)
                 )
+            }
+        }
+
+        // ── 3. BILAH NAVIGASI PREV / NEXT (MELEKAT DI BAWAH) ──
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter), // Ditaruh di bagian paling bawah
+            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+            color = colorScheme.surface,
+            shadowElevation = 0.dp
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+
+                // ── KIRI: Lagu Sebelumnya ──
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable(enabled = prevLagu != null) {
+                            prevLagu?.let { onNavigate(it.id) }
+                        }
+                        .padding(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (prevLagu != null) {
+                        Icon(
+                            imageVector = Icons.Rounded.ArrowBackIosNew,
+                            contentDescription = "Sebelumnya",
+                            modifier = Modifier.size(16.dp),
+                            tint = colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(0.dp)
+                        ) {
+                            Text(
+                                text = prevLagu.judul,
+                                fontSize = 11.sp,
+                                lineHeight = 13.sp,
+                                fontWeight = FontWeight.Black,
+                                color = colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = prevLagu.kategori,
+                                fontSize = 9.sp,
+                                lineHeight = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+
+                // ── TENGAH: Area Kosong ──
+                Spacer(modifier = Modifier.width(72.dp))
+
+                // ── KANAN: Lagu Selanjutnya ──
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable(enabled = nextLagu != null) {
+                            nextLagu?.let { onNavigate(it.id) }
+                        }
+                        .padding(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    if (nextLagu != null) {
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            horizontalAlignment = Alignment.End,
+                            verticalArrangement = Arrangement.spacedBy(0.dp)
+                        ) {
+                            Text(
+                                text = nextLagu.judul,
+                                fontSize = 11.sp,
+                                lineHeight = 13.sp,
+                                fontWeight = FontWeight.Black,
+                                color = colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                textAlign = TextAlign.End
+                            )
+                            Text(
+                                text = nextLagu.kategori,
+                                fontSize = 9.sp,
+                                lineHeight = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                textAlign = TextAlign.End
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Icon(
+                            imageVector = Icons.Rounded.ArrowForwardIos,
+                            contentDescription = "Selanjutnya",
+                            modifier = Modifier.size(16.dp),
+                            tint = colorScheme.onSurface
+                        )
+                    }
+                }
             }
         }
     }

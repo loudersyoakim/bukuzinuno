@@ -129,7 +129,7 @@ fun MainScreen(
             val lagu = viewModel.semuaLagu.collectAsState().value.find { it.id == selectedLaguId }
             Triple(lagu?.kategori ?: "Detail Lagu", "No. ${lagu?.nomor}. ${lagu?.judul}", true)
         }
-        selectedItem == 0 -> Triple("Buku Zinuno AFY", "Daftar Semua Lagu", false)
+        selectedItem == 0 -> Triple("Buku Zinuno\nAngowuloa Fa'awösa Khö Yesu", "Daftar Semua Lagu", false)
         selectedItem == 1 -> {
             if (openedKategori != null) Triple("Kategori Lagu", openedKategori!!, true)
             else Triple("Kategori Lagu", "Pilih daftar pujian", false)
@@ -197,7 +197,10 @@ fun MainScreen(
             ) {
                 // LAYER 1: TAMPILAN DETAIL (OVERLAY)
                 if (selectedLaguId != null) {
-                    DetailLaguScreen(viewModel = viewModel, laguId = selectedLaguId!!)
+                    DetailLaguScreen(viewModel = viewModel, laguId = selectedLaguId!!,
+                        onNavigate = { newLaguId ->
+                            selectedLaguId = newLaguId // Ini akan mengganti tampilan lirik ke lagu baru
+                        })
                 }
                 // LAYER 2: TAMPILAN MENU UTAMA
                 else {

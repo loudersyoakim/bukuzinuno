@@ -27,6 +27,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.firebase.Firebase
+import com.google.firebase.analytics.FirebaseAnalytics
+import com.google.firebase.analytics.analytics
+import com.google.firebase.analytics.logEvent
 import com.sinodeafynias.bukuzinuno.ui.viewmodel.LaguViewModel
 
 @Composable
@@ -37,6 +41,7 @@ fun DetailLaguScreen(
 ) {
     val daftarLagu by viewModel.semuaLagu.collectAsState()
     val context = LocalContext.current
+    val analytics = Firebase.analytics
 
     val currentIndex = daftarLagu.indexOfFirst { it.id == laguId }
     val lagu = daftarLagu.getOrNull(currentIndex)
@@ -51,6 +56,13 @@ fun DetailLaguScreen(
     )
 
     if (lagu == null) return
+
+    LaunchedEffect(lagu.id) {
+        analytics.logEvent(FirebaseAnalytics.Event.SCREEN_VIEW) {
+            param(FirebaseAnalytics.Param.SCREEN_NAME, "Detail Lagu: ${lagu.judul}")
+            param(FirebaseAnalytics.Param.SCREEN_CLASS, "MainActivity")
+        }
+    }
 
     val colorScheme = MaterialTheme.colorScheme
 
@@ -170,7 +182,7 @@ fun DetailLaguScreen(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 // Memberikan jarak dari bawah agar tepat berada di atas Bilah Navigasi
-                .padding(end = 24.dp, bottom = 50.dp),
+                .padding(end = 12.dp, bottom = 60.dp),
             contentAlignment = Alignment.BottomCenter // Kunci di tengah-bawah agar lidah keluar dari dalam
         ) {
             // --- ANAK MENU (LIDAH KAPSUL) ---
@@ -180,7 +192,7 @@ fun DetailLaguScreen(
                 enter = fadeIn() + expandVertically(expandFrom = Alignment.Bottom),
                 exit = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Bottom),
                 // Padding ini memposisikan dasar lidah tepat di belakang FAB
-                modifier = Modifier.padding(bottom = 28.dp)
+                modifier = Modifier.padding(bottom = 20.dp)
             ) {
                 Surface(
                     shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp, bottomStart = 16.dp, bottomEnd = 16.dp),
@@ -274,7 +286,7 @@ fun DetailLaguScreen(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .align(Alignment.BottomCenter), // Ditaruh di bagian paling bawah
+                .align(Alignment.BottomCenter),
             shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
             color = colorScheme.surface,
             shadowElevation = 0.dp
@@ -282,8 +294,7 @@ fun DetailLaguScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                    .padding(start = 12.dp, top = 8.dp, end = 12.dp, bottom = 10.dp),                verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
 
@@ -333,7 +344,20 @@ fun DetailLaguScreen(
                 }
 
                 // ── TENGAH: Area Kosong ──
-                Spacer(modifier = Modifier.width(72.dp))
+                Column(
+                    modifier = Modifier.width(72.dp), // Menggunakan ukuran yang sama dengan Spacer sebelumnya
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "${currentIndex + 1}",
+                        fontSize = 11.sp, // Disamakan dengan fontSize judul agar sejajar
+                        fontWeight = FontWeight.Black,
+                        color = colorScheme.onSurface,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(11.dp))
+                }
 
                 // ── KANAN: Lagu Selanjutnya ──
                 Row(

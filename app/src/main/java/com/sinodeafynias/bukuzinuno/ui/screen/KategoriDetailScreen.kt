@@ -23,6 +23,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sinodeafynias.bukuzinuno.ui.viewmodel.LaguViewModel
 import java.util.Locale
+import com.google.firebase.Firebase
+import com.google.firebase.analytics.FirebaseAnalytics
+import com.google.firebase.analytics.analytics
+import com.google.firebase.analytics.logEvent
+
 
 @Composable
 fun KategoriDetailScreen(
@@ -30,8 +35,19 @@ fun KategoriDetailScreen(
     namaKategori: String,
     onLaguClick: (String) -> Unit
 ) {
+
+    LaunchedEffect(Unit) {
+        val analytics = Firebase.analytics
+        analytics.logEvent(FirebaseAnalytics.Event.SCREEN_VIEW) {
+            param(FirebaseAnalytics.Param.SCREEN_NAME, "Kategori Detail: $namaKategori")
+            param(FirebaseAnalytics.Param.SCREEN_CLASS, "MainActivity")
+        }
+    }
+
     val daftarLagu by viewModel.semuaLagu.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
+
+
 
     val laguDitampilkan = remember(daftarLagu, searchQuery) {
         val queryBersih = searchQuery.menormalisasiTeks().lowercase(Locale.getDefault())
@@ -43,7 +59,6 @@ fun KategoriDetailScreen(
             (judulBersih.contains(queryBersih) || nomorBersih.contains(queryBersih)) && cocokKategori
         }
     }
-
     // Mengambil skema warna adaptif
     val colorScheme = MaterialTheme.colorScheme
 

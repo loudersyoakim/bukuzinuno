@@ -35,6 +35,11 @@ import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import com.sinodeafynias.bukuzinuno.R
 import com.sinodeafynias.bukuzinuno.ui.viewmodel.LaguViewModel
+import com.google.firebase.Firebase
+import com.google.firebase.analytics.FirebaseAnalytics
+import com.google.firebase.analytics.analytics
+import com.google.firebase.analytics.logEvent
+
 
 @Composable
 fun MenuScreen(
@@ -51,6 +56,9 @@ fun MenuScreen(
     // --- BACA MEMORI UNTUK MENGAMBIL VERSI SYNC TERAKHIR ---
     val prefs = context.getSharedPreferences("ZinunoPrefs", android.content.Context.MODE_PRIVATE)
     val versiAppInfo = prefs.getInt("versi_app_info", 1)
+    val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+    val versionName = packageInfo.versionName // Ini akan mengambil "2.1" dari build.gradle
+
 
     // --- FITUR: LAYAR TETAP MENYALA ---
     DisposableEffect(isKeepScreenOn) {
@@ -60,6 +68,17 @@ fun MenuScreen(
             activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         }
         onDispose { }
+    }
+
+    LaunchedEffect(Unit) {
+        val analytics = Firebase.analytics
+        val fullVersionString = "Versi $versionName.$versiAppInfo"
+
+        analytics.logEvent(FirebaseAnalytics.Event.SCREEN_VIEW) {
+            param(FirebaseAnalytics.Param.SCREEN_NAME, "Menu Screen")
+            param(FirebaseAnalytics.Param.SCREEN_CLASS, "MainActivity")
+            param("app_version_full", fullVersionString)
+        }
     }
 
     // --- DATA DINAMIS ---
@@ -209,7 +228,7 @@ fun MenuScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "Versi 1.$versiAppInfo",
+                    text = "Versi $versionName .$versiAppInfo",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = colorScheme.outline,

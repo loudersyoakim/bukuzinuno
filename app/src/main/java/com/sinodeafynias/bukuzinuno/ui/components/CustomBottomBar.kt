@@ -23,6 +23,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.*
+import androidx.compose.foundation.background
+
 
 class DeepNotchBarShape(
     private val cornerRadius: Float,
@@ -109,6 +111,7 @@ fun CustomBottomBar(
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface)
             .wrapContentHeight(),
         contentAlignment = Alignment.BottomCenter
     ) {

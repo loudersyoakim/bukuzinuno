@@ -27,6 +27,11 @@ import com.sinodeafynias.bukuzinuno.ui.components.CustomTopBar
 import com.sinodeafynias.bukuzinuno.ui.viewmodel.LaguViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.google.firebase.Firebase
+import com.google.firebase.analytics.FirebaseAnalytics
+import com.google.firebase.analytics.analytics
+import com.google.firebase.analytics.logEvent
+
 
 /**
  * 1. FUNGSI HELPER NORMALISASI TEKS
@@ -58,6 +63,16 @@ fun MainScreen(
     val context = LocalContext.current
     val colorScheme = MaterialTheme.colorScheme
     val scope = rememberCoroutineScope()
+
+    LaunchedEffect(Unit) {
+        val analytics = Firebase.analytics
+        analytics.logEvent(FirebaseAnalytics.Event.SCREEN_VIEW) {
+            param(FirebaseAnalytics.Param.SCREEN_NAME, "Main Screen")
+            param(FirebaseAnalytics.Param.SCREEN_CLASS, "MainActivity")
+
+            param("theme_mode", if (isDarkMode) "dark" else "light")
+        }
+    }
 
     // --- STATE PULL TO REFRESH ---
     var isRefreshing by remember { mutableStateOf(false) }

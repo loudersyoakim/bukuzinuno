@@ -30,6 +30,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sinodeafynias.bukuzinuno.ui.viewmodel.LaguViewModel
+import com.google.firebase.Firebase
+import com.google.firebase.analytics.FirebaseAnalytics
+import com.google.firebase.analytics.analytics
+import com.google.firebase.analytics.logEvent
+
 
 @Composable
 fun SearchScreen(
@@ -62,7 +67,14 @@ fun SearchScreen(
 
     // Mengambil skema warna adaptif
     val colorScheme = MaterialTheme.colorScheme
+    val analytics = remember { Firebase.analytics }
 
+    LaunchedEffect(Unit) {
+        analytics.logEvent(FirebaseAnalytics.Event.SCREEN_VIEW) {
+            param(FirebaseAnalytics.Param.SCREEN_NAME, "Search Screen")
+            param(FirebaseAnalytics.Param.SCREEN_CLASS, "MainActivity")
+        }
+    }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -95,10 +107,19 @@ fun SearchScreen(
                             onValueChange = { searchQuery = it },
                             modifier = Modifier
                                 .weight(1f)
-                                .focusRequester(focusRequester), // 3. TEMPELKAN PENANDA KE TEXTFIELD
+                                .focusRequester(focusRequester),
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                            keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
+                            keyboardActions = KeyboardActions(onSearch = {
+                                focusManager.clearFocus()
+
+                                // --- TRACKING KEYWORD DISINI ---
+                                if (searchQuery.isNotEmpty()) {
+                                    analytics.logEvent(FirebaseAnalytics.Event.SEARCH) {
+                                        param(FirebaseAnalytics.Param.SEARCH_TERM, searchQuery)
+                                    }
+                                }
+                            }),
                             textStyle = LocalTextStyle.current.copy(
                                 fontSize = 16.sp,
                                 color = colorScheme.onSurface // ADAPTIF: Hitam/Putih

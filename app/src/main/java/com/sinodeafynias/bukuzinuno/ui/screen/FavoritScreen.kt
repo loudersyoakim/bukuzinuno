@@ -25,12 +25,23 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sinodeafynias.bukuzinuno.ui.viewmodel.LaguViewModel
 import java.util.Locale
+import com.google.firebase.Firebase
+import com.google.firebase.analytics.FirebaseAnalytics
+import com.google.firebase.analytics.analytics
+import com.google.firebase.analytics.logEvent
 
 @Composable
 fun FavoritScreen(viewModel: LaguViewModel, onLaguClick: (String) -> Unit) {
     val listFavorit by viewModel.laguFavorit.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
 
+    LaunchedEffect(Unit) {
+        val analytics = Firebase.analytics
+        analytics.logEvent(FirebaseAnalytics.Event.SCREEN_VIEW) {
+            param(FirebaseAnalytics.Param.SCREEN_NAME, "Favorit Screen")
+            param(FirebaseAnalytics.Param.SCREEN_CLASS, "MainActivity")
+        }
+    }
     val laguDitampilkan = remember(listFavorit, searchQuery) {
         listFavorit.filter { lagu ->
             if (searchQuery.isEmpty()) return@filter true

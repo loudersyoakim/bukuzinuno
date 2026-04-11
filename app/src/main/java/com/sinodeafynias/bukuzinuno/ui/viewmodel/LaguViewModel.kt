@@ -2,6 +2,7 @@ package com.sinodeafynias.bukuzinuno.ui.viewmodel
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -66,20 +67,51 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
     fun sinkronisasiCerdas(context: Context) {
         val prefs = context.getSharedPreferences("ZinunoPrefs", Context.MODE_PRIVATE)
 
+        // 1. CEK VERSI APLIKASI UNTUK UPDATE OTOMATIS
+        cekUpdateAplikasi(context, prefs)
+
         viewModelScope.launch {
-            // 1. TAHAP INFO APP
+            // 2. TAHAP INFO APP
             muatAppInfoLokalAtauPrefs(context, prefs)
             syncAppInfoRemote(prefs)
 
-            // 2. TAHAP LAGU: Cek via SharedPreferences (Bukan via Database agar INSTAN)
+            // 3. TAHAP LAGU: Cek via SharedPreferences (Bukan via Database agar INSTAN)
             val isFirstInstallLagu = prefs.getInt("versi_lagu", 0) == 0
             if (isFirstInstallLagu) {
                 muatLaguDariJsonLokal(context, prefs)
             }
 
-            // 3. CEK UPDATE KE FIREBASE
+            // 4. CEK UPDATE KE FIREBASE
             syncNodeLaguRemote(prefs, nodeName = "lagu", prefKey = "versi_lagu")
             syncNodeLaguRemote(prefs, nodeName = "dll", prefKey = "versi_dll")
+        }
+    }
+
+    private fun cekUpdateAplikasi(context: Context, prefs: SharedPreferences) {
+        try {
+            val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+            // Gunakan longVersionCode untuk API level tinggi, namun fallback ke versionCode untuk kompabilitas
+            val currentAppVersion = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                packageInfo.longVersionCode.toInt()
+            } else {
+                @Suppress("DEPRECATION")
+                packageInfo.versionCode
+            }
+
+            val savedAppVersion = prefs.getInt("saved_app_version", 0)
+
+            // Jika versi aplikasi saat ini LEBIH BESAR dari yang tersimpan, berarti aplikasi baru di-update dari PlayStore
+            if (savedAppVersion < currentAppVersion) {
+                Log.d("Sync", "Aplikasi terupdate ke versi $currentAppVersion. Mereset versi_lagu ke 0.")
+
+                prefs.edit()
+                    .putInt("versi_lagu", 0) // Paksa baca ulang lirik_lagu.json
+                    .putInt("versi_dll", 0) // Jika ada file ononota.json yang diupdate juga
+                    .putInt("saved_app_version", currentAppVersion)
+                    .apply()
+            }
+        } catch (e: PackageManager.NameNotFoundException) {
+            Log.e("Sync", "Gagal mendapatkan versi aplikasi: ${e.message}")
         }
     }
 
@@ -237,14 +269,19 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
                         val inputStream = context.assets.open(namaFile)
                         val daftarLagu: List<Lagu> = gson.fromJson(InputStreamReader(inputStream), tipeDaftar)
                         semuaDataDigabung.addAll(daftarLagu)
-                    } catch (e: Exception) { }
+                    } catch (e: Exception) {
+                        Log.e("Sync", "Gagal membaca file $namaFile: ${e.message}")
+                    }
                 }
 
                 if (semuaDataDigabung.isNotEmpty()) {
                     repository.insertSemuaLagu(semuaDataDigabung)
                     prefs.edit().putInt("versi_lagu", 1).putInt("versi_dll", 1).apply()
+                    Log.d("Sync", "Berhasil memuat ${semuaDataDigabung.size} lagu dari JSON lokal.")
                 }
-            } catch (e: Exception) { }
+            } catch (e: Exception) {
+                Log.e("Sync", "Gagal memproses JSON lokal: ${e.message}")
+            }
         }
     }
 
@@ -293,7 +330,7 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
                         if (daftarLaguBaru.isNotEmpty()) {
                             repository.insertSemuaLagu(daftarLaguBaru)
                             prefs.edit().putInt(prefKey, versiTertinggi).apply()
-                            Log.d("Sync", "Sukses update data di '$nodeName'")
+                            Log.d("Sync", "Sukses update ${daftarLaguBaru.size} data di '$nodeName'")
                         }
                     }
                 }

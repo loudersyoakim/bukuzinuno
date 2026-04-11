@@ -39,6 +39,8 @@ import com.google.firebase.analytics.logEvent
 fun String.menormalisasiTeks(): String {
     return this.lowercase()
         .replace("ö", "o")
+        .replace("ӧ", "o")
+        .replace("ŵ", "w")
         .replace("ŵ", "w")
         .replace("Ö", "o")
         .replace("Ŵ", "w")

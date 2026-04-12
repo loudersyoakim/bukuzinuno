@@ -1,5 +1,6 @@
 package com.sinodeafynias.bukuzinuno.ui.screen
 
+import android.content.Context
 import android.content.Intent
 import androidx.compose.animation.*
 import androidx.compose.animation.core.animateFloatAsState
@@ -32,6 +33,7 @@ import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.analytics.analytics
 import com.google.firebase.analytics.logEvent
 import com.sinodeafynias.bukuzinuno.ui.viewmodel.LaguViewModel
+import kotlinx.coroutines.delay
 
 @Composable
 fun DetailLaguScreen(
@@ -48,7 +50,18 @@ fun DetailLaguScreen(
     val prevLagu = daftarLagu.getOrNull(currentIndex - 1)
     val nextLagu = daftarLagu.getOrNull(currentIndex + 1)
 
-    var fontScale by remember { mutableStateOf(19f) }
+    // --- FITUR SIMPAN UKURAN FONT ---
+    val prefs = context.getSharedPreferences("ZinunoPrefs", Context.MODE_PRIVATE)
+
+    // Baca memori saat halaman dibuka (Default 19f jika belum pernah dicubit)
+    var fontScale by remember { mutableStateOf(prefs.getFloat("font_scale", 19f)) }
+
+    // Simpan ke memori tiap kali fontScale berubah (dengan teknik Debounce/Delay 500ms agar tidak lag)
+    LaunchedEffect(fontScale) {
+        delay(1000)
+        prefs.edit().putFloat("font_scale", fontScale).apply()    }
+    // --------------------------------
+
     var isMenuExpanded by remember { mutableStateOf(false) }
     val iconRotation by animateFloatAsState(
         targetValue = if (isMenuExpanded) 180f else 0f,

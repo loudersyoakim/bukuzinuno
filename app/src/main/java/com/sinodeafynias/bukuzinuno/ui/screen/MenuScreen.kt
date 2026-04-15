@@ -1,8 +1,10 @@
 package com.sinodeafynias.bukuzinuno.ui.screen
 
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -40,7 +42,6 @@ import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.analytics.analytics
 import com.google.firebase.analytics.logEvent
 
-
 @Composable
 fun MenuScreen(
     viewModel: LaguViewModel,
@@ -53,14 +54,11 @@ fun MenuScreen(
     val activity = context as? Activity
     val uriHandler = LocalUriHandler.current
 
-    // --- BACA MEMORI UNTUK MENGAMBIL VERSI SYNC TERAKHIR ---
-    val prefs = context.getSharedPreferences("ZinunoPrefs", android.content.Context.MODE_PRIVATE)
+    val prefs = context.getSharedPreferences("ZinunoPrefs", Context.MODE_PRIVATE)
     val versiAppInfo = prefs.getInt("versi_app_info", 1)
     val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-    val versionName = packageInfo.versionName // Ini akan mengambil "2.1" dari build.gradle
+    val versionName = packageInfo.versionName
 
-
-    // --- FITUR: LAYAR TETAP MENYALA ---
     DisposableEffect(isKeepScreenOn) {
         if (isKeepScreenOn) {
             activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -71,9 +69,9 @@ fun MenuScreen(
     }
 
     LaunchedEffect(Unit) {
+        viewModel.calculateLocalAudioStats(context)
         val analytics = Firebase.analytics
         val fullVersionString = "Versi $versionName.$versiAppInfo"
-
         analytics.logEvent(FirebaseAnalytics.Event.SCREEN_VIEW) {
             param(FirebaseAnalytics.Param.SCREEN_NAME, "Menu Screen")
             param(FirebaseAnalytics.Param.SCREEN_CLASS, "MainActivity")
@@ -81,12 +79,26 @@ fun MenuScreen(
         }
     }
 
-    // --- DATA DINAMIS ---
     val appDescription = viewModel.appDescription
     val churchEmail = viewModel.churchEmail
     val devContact = viewModel.devContact
     val devName = viewModel.devName
     val thankYouNote = viewModel.thankYouNote
+
+    // --- STATE UNTUK AUDIO OFFLINE ---
+    val isDownloadingAll by viewModel.isDownloadingAll.collectAsState()
+    val downloadedCount by viewModel.downloadedCount.collectAsState()
+    val totalUniqueAudioCount by viewModel.totalUniqueAudioCount.collectAsState()
+    val totalAudioSize by viewModel.totalAudioSize.collectAsState()
+    val downloadStatusMessage by viewModel.downloadStatusMessage.collectAsState()
+
+    // Jika ada pesan status baru (setelah download selesai), tampilkan Toast
+    LaunchedEffect(downloadStatusMessage) {
+        if (downloadStatusMessage.isNotEmpty()) {
+            Toast.makeText(context, downloadStatusMessage, Toast.LENGTH_LONG).show()
+            viewModel.clearDownloadStatusMessage() // Reset agar tidak muncul terus
+        }
+    }
 
     var showAboutDialog by remember { mutableStateOf(false) }
     var showContactDialog by remember { mutableStateOf(false) }
@@ -94,7 +106,6 @@ fun MenuScreen(
     var devClickCount by remember { mutableIntStateOf(0) }
     var showDeveloperSecret by remember { mutableStateOf(false) }
 
-    // --- SKEMA WARNA ADAPTIF ---
     val colorScheme = MaterialTheme.colorScheme
     val textPrimary = colorScheme.onBackground
     val textSecondary = colorScheme.onSurfaceVariant
@@ -139,6 +150,67 @@ fun MenuScreen(
                     color = colorScheme.primary,
                     fontWeight = FontWeight.ExtraBold
                 )
+            }
+        }
+
+        // --- SECTION PENYIMPANAN AUDIO ---
+        item {
+            MenuSectionTitle(title = "Penyimpanan")
+            Spacer(modifier = Modifier.height(12.dp))
+            Card(
+                colors = CardDefaults.cardColors(containerColor = colorScheme.surface),
+                shape = RoundedCornerShape(24.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(enabled = !isDownloadingAll) {
+                                // Mencegah download jika semua data sudah lengkap
+                                if (downloadedCount < totalUniqueAudioCount) {
+                                    viewModel.downloadAllAudio(context)
+                                } else if (totalUniqueAudioCount > 0) {
+                                    Toast.makeText(context, "Semua audio sudah tersimpan secara offline", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "Belum ada data audio", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            .padding(horizontal = 24.dp, vertical = 20.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Rounded.LibraryMusic, null, tint = colorScheme.primary, modifier = Modifier.size(26.dp))
+                        Spacer(modifier = Modifier.width(16.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Audio Offline",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = colorScheme.onSurface
+                            )
+                            Text(
+                                text = "($downloadedCount/$totalUniqueAudioCount - $totalAudioSize)",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = colorScheme.outline
+                            )
+                        }
+
+                        // Icon Kanan Dinamis (Loading / Centang / Unduh)
+                        if (isDownloadingAll) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(22.dp),
+                                color = colorScheme.primary,
+                                strokeWidth = 2.dp
+                            )
+                        } else if (downloadedCount >= totalUniqueAudioCount && totalUniqueAudioCount > 0) {
+                            Icon(Icons.Rounded.CheckCircle, null, tint = Color(0xFF25D366), modifier = Modifier.size(24.dp))
+                        } else {
+                            Icon(Icons.Rounded.Download, null, tint = colorScheme.outline, modifier = Modifier.size(24.dp))
+                        }
+                    }
+                }
             }
         }
 
@@ -209,7 +281,7 @@ fun MenuScreen(
                                 putExtra(Intent.EXTRA_SUBJECT, "Aplikasi Buku Zinuno AFY")
                                 putExtra(
                                     Intent.EXTRA_TEXT,
-                                    "Mari memuji Tuhan bersama menggunakan aplikasi Buku Zinuno Angowuloa Fa'awösa Khö Yesu (AFY). Dapatkan lirik lagu terlengkap di genggamanmu!\n\nUnduh sekarang di Google Play Store:\n$playStoreLink"
+                                    "Mari memuji Tuhan bersama menggunakan aplikasi Buku Zinuno Angowuloa Fa'awösa Khö Yesu (AFY).\n\nUnduh sekarang di Google Play Store:\n$playStoreLink"
                                 )
                             }
                             context.startActivity(Intent.createChooser(shareIntent, "Bagikan melalui"))
@@ -219,7 +291,7 @@ fun MenuScreen(
             }
         }
 
-        // --- FOOTER VERSI & COPYRIGHT ---
+        // --- FOOTER ---
         item {
             Column(
                 modifier = Modifier
@@ -366,7 +438,7 @@ fun MenuScreen(
         )
     }
 
-    // --- DIALOG: KEBIJAKAN PRIVASI ---
+    // --- DIALOG: KEBIJAKAN PRIVASI & OPEN SOURCE ---
     if (showPrivacyDialog) {
         AlertDialog(
             onDismissRequest = { showPrivacyDialog = false },
@@ -383,41 +455,38 @@ fun MenuScreen(
                         .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Header & Intro
                     Text(
                         text = "Pembaruan Terakhir: ${viewModel.privacyLastUpdate}\n\n${viewModel.privacyIntro}",
-                        fontSize = 14.sp,
-                        color = textSecondary,
-                        lineHeight = 22.sp
+                        fontSize = 14.sp, color = textSecondary, lineHeight = 22.sp
                     )
 
-                    // Looping Otomatis Semua Aturan (rule_1, rule_2, dst)
                     viewModel.privacyRules.forEach { rule ->
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            // Judul (Head) dibuat BOLD
                             Text(rule.head, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = textPrimary)
-                            // Isi (Content) biasa
                             Text(rule.content, fontSize = 14.sp, color = textSecondary, lineHeight = 20.sp)
                         }
                     }
 
-                    // --- OPEN SOURCE (Tetap Hardcode karena ada link interaktif) ---
+                    // --- OPEN SOURCE (Diperbarui dengan 2 Link) ---
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Transparansi Kode (Open Source)", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = textPrimary)
-                        Text("Segala kode sumber aplikasi ini bersifat terbuka dan dapat diakses secara transparan oleh publik. Anda dapat melihat repositorinya dengan menekan tautan di bawah ini:", fontSize = 14.sp, color = textSecondary, lineHeight = 20.sp)
+                        Text("Transparansi Kode (Open Source)", fontWeight = FontWeight.Black, fontSize = 14.sp, color = textPrimary)
+                        Text("Aplikasi ini bersifat terbuka. Anda dapat melihat kode sumber dan direktori audio melalui tautan berikut:", fontSize = 14.sp, color = textSecondary, lineHeight = 20.sp)
 
-                        Text(
-                            text = "Klik di sini untuk membuka GitHub",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = colorScheme.primary,
-                            textDecoration = TextDecoration.Underline,
-                            modifier = Modifier
-                                .padding(top = 4.dp)
-                                .clickable {
-                                    uriHandler.openUri("https://github.com/loudersyoakim/bukuzinuno")
-                                }
-                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        // Link 1: Repo Utama
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { uriHandler.openUri("https://github.com/loudersyoakim/bukuzinuno") }.padding(vertical = 6.dp)) {
+                            Icon(Icons.Rounded.Code, null, tint = colorScheme.primary, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Repositori Utama (Kode)", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colorScheme.primary, textDecoration = TextDecoration.Underline)
+                        }
+
+                        // Link 2: Repo Audio
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { uriHandler.openUri("https://github.com/loudersyoakim/bkz_afy_audio") }.padding(vertical = 6.dp)) {
+                            Icon(Icons.Rounded.LibraryMusic, null, tint = colorScheme.primary, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Repositori Audio (MP3)", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colorScheme.primary, textDecoration = TextDecoration.Underline)
+                        }
                     }
                 }
             },
@@ -471,24 +540,9 @@ fun MenuScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(
-                            text = "louders260704@gmail.com",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = textSecondary
-                        )
-                        Text(
-                            text = "WA: +62 852-6026-9861",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = textSecondary
-                        )
-                        Text(
-                            text = "IG: @louders_yoakim",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = textSecondary
-                        )
+                        Text(text = "louders260704@gmail.com", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = textSecondary)
+                        Text(text = "WA: +62 852-6026-9861", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = textSecondary)
+                        Text(text = "IG: @louders_yoakim", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = textSecondary)
                     }
                 }
             },

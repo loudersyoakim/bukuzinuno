@@ -24,6 +24,13 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.InputStreamReader
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 // Data Class untuk menampung struktur Aturan Privasi
 data class PrivacyRule(
@@ -338,5 +345,112 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
                 }
                 override fun onCancelled(error: DatabaseError) {}
             })
+    }
+
+    // --- FITUR UNDUH SEMUA AUDIO ---
+    private val _downloadProgress = MutableStateFlow(0)
+    val downloadProgress: StateFlow<Int> = _downloadProgress.asStateFlow()
+
+    private val _isDownloadingAll = MutableStateFlow(false)
+    val isDownloadingAll: StateFlow<Boolean> = _isDownloadingAll.asStateFlow()
+
+    private val _downloadedCount = MutableStateFlow(0)
+    val downloadedCount: StateFlow<Int> = _downloadedCount.asStateFlow()
+
+    private val _totalUniqueAudioCount = MutableStateFlow(0)
+    val totalUniqueAudioCount: StateFlow<Int> = _totalUniqueAudioCount.asStateFlow()
+
+    private val _totalAudioSize = MutableStateFlow("0 MB")
+    val totalAudioSize: StateFlow<String> = _totalAudioSize.asStateFlow()
+
+    // ── TAMBAHAN: Pesan Status Unduhan ──
+    private val _downloadStatusMessage = MutableStateFlow("")
+    val downloadStatusMessage: StateFlow<String> = _downloadStatusMessage.asStateFlow()
+
+    fun calculateLocalAudioStats(context: Context) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val uniqueAudioIds = semuaLagu.value
+                .map { it.audio_id }
+                .filter { it.isNotEmpty() }
+                .distinct()
+
+            _totalUniqueAudioCount.value = uniqueAudioIds.size
+
+            val expectedFiles = uniqueAudioIds.map { "$it.mp3" }
+            val audioFiles = context.filesDir.listFiles { file ->
+                file.name in expectedFiles && !file.name.contains("_temp")
+            } ?: emptyArray()
+
+            _downloadedCount.value = audioFiles.size
+
+            val totalBytes = audioFiles.sumOf { it.length() }
+            val totalMB = totalBytes / (1024.0 * 1024.0)
+            _totalAudioSize.value = String.format("%.1f MB", totalMB)
+        }
+    }
+
+    fun downloadAllAudio(context: Context) {
+        if (_isDownloadingAll.value) return
+
+        viewModelScope.launch(Dispatchers.IO) {
+            _isDownloadingAll.value = true
+            _downloadStatusMessage.value = "" // Reset pesan saat mulai
+
+            val uniqueAudioIds = semuaLagu.value
+                .map { it.audio_id }
+                .filter { it.isNotEmpty() }
+                .distinct()
+
+            val totalToDownload = uniqueAudioIds.size
+            var currentProgress = 0
+            var successfulDownloads = 0 // Menghitung yang benar-benar berhasil diunduh/ada
+
+            for (audioId in uniqueAudioIds) {
+                val localFile = File(context.filesDir, "$audioId.mp3")
+
+                if (localFile.exists()) {
+                    currentProgress++
+                    successfulDownloads++
+                    _downloadProgress.value = (currentProgress * 100) / totalToDownload
+                    continue
+                }
+
+                try {
+                    val url = "https://raw.githubusercontent.com/loudersyoakim/bkz_afy_audio/main/music_compressed/$audioId.mp3"
+                    val conn = URL(url).openConnection() as HttpURLConnection
+                    conn.connectTimeout = 4000
+                    conn.connect()
+
+                    if (conn.responseCode == 200) {
+                        val tempFile = File(context.filesDir, "${audioId}_temp.mp3")
+                        conn.inputStream.use { i -> tempFile.outputStream().use { o -> i.copyTo(o) } }
+                        tempFile.renameTo(localFile)
+                        successfulDownloads++
+                    }
+                } catch (e: Exception) {
+                    File(context.filesDir, "${audioId}_temp.mp3").delete()
+                }
+
+                currentProgress++
+                _downloadProgress.value = (currentProgress * 100) / totalToDownload
+                calculateLocalAudioStats(context)
+            }
+
+            _isDownloadingAll.value = false
+            _downloadProgress.value = 0
+            calculateLocalAudioStats(context)
+
+            // ── LOGIKA PESAN JIKA TIDAK LENGKAP ──
+            if (successfulDownloads < totalToDownload) {
+                _downloadStatusMessage.value = "Audio di server belum lengkap. Ditemukan $successfulDownloads dari $totalToDownload audio."
+            } else {
+                _downloadStatusMessage.value = "Semua audio berhasil diunduh!"
+            }
+        }
+    }
+
+    // Fungsi untuk menghapus pesan (dipanggil dari UI)
+    fun clearDownloadStatusMessage() {
+        _downloadStatusMessage.value = ""
     }
 }

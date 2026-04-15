@@ -13,5 +13,6 @@ data class Lagu(
     val nada: String,
     val lirik: List<String>,
     val version: Int = 1,
-    val isFavorit: Boolean = false
+    val isFavorit: Boolean = false,
+    val audio_id: String = ""
 )

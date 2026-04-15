@@ -304,6 +304,7 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
                         for (laguSnap in snapshot.children) {
                             val v = laguSnap.child("version").getValue(Int::class.java) ?: 1
                             if (v > versiTertinggi) versiTertinggi = v
+                            val audioId = laguSnap.child("audio_id").value?.toString() ?: "" // Tambahkan ini
 
                             val lirikList = mutableListOf<String>()
                             laguSnap.child("lirik").children.forEach {
@@ -323,7 +324,8 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
                                 nada = laguSnap.child("nada").value?.toString() ?: "",
                                 lirik = lirikList,
                                 version = v,
-                                isFavorit = statusFavorit
+                                isFavorit = statusFavorit,
+                                audio_id = audioId,
                             ))
                         }
 

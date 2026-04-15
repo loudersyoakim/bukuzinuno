@@ -228,7 +228,7 @@ fun MenuScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "Versi $versionName.$versiAppInfo",
+                    text = "Versi $versionName.${versiAppInfo % 10}",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = colorScheme.outline,

@@ -462,7 +462,7 @@
     "id": "lagu_029",
     "nomor_urut": 29,
     "nomor": "29",
-    "judul": "Masuno'ö Yehowa (no.03)",
+    "judul": "Masuno'ö Yehowa (No. 3)",
     "kategori": "ADVENT",
     "nada": "F = DO; 3/4",
     "lirik": [
@@ -1511,7 +1511,7 @@
     "id": "lagu_090",
     "nomor_urut": 90,
     "nomor": "90",
-    "judul": "Usuno Wa'ahakhö Dödö (no.192)",
+    "judul": "Usuno Wa'ahakhö Dödö (No. 192)",
     "kategori": "FANEMA EHEHA",
     "nada": "C = DO; 3/4",
     "lirik": [
@@ -2012,7 +2012,7 @@
     "id": "lagu_121",
     "nomor_urut": 121,
     "nomor": "121",
-    "judul": "He So'aya Khöu Ndraodo (no.195)",
+    "judul": "He So'aya Khöu Ndraodo (No. 195)",
     "kategori": "FAMATUNÖ LI WOWALANGI",
     "nada": "F = DO; 4/4",
     "lirik": [
@@ -2230,7 +2230,7 @@
     "id": "lagu_134",
     "nomor_urut": 134,
     "nomor": "134",
-    "judul": "Na Hönö Mbawa Gu Ena'ö (no.04)",
+    "judul": "Na Hönö Mbawa Gu Ena'ö (No. 4)",
     "kategori": "FEMANGA GÖ NIAMONI'Ö",
     "nada": "F = DO; 4/4",
     "lirik": [
@@ -6117,6 +6117,7 @@
   {
     "id": "lagu_366",
     "nomor_urut": 366,
+    "nomor": "366",
     "nomor": "366",
     "judul": "He So'aya Böi Bulö'ö",
     "kategori": "TOHU-TOHU",

@@ -29,8 +29,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 // Data Class untuk menampung struktur Aturan Privasi
 data class PrivacyRule(
@@ -50,6 +48,15 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
     fun updateFavorit(id: String, isFavorit: Boolean) {
         viewModelScope.launch { repository.updateFavorit(id, isFavorit) }
     }
+
+    // --- STATE UNTUK SMART SYNC DIALOG ---
+    private val _showSyncDialog = MutableStateFlow(false)
+    val showSyncDialog = _showSyncDialog.asStateFlow()
+
+    private val _pendingAudioCount = MutableStateFlow(0)
+    val pendingAudioCount = _pendingAudioCount.asStateFlow()
+
+    private var pendingAudioIdsToDownload: List<String> = emptyList()
 
     // --- STATE APP INFO ---
     var appDescription by mutableStateOf("")
@@ -347,7 +354,7 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
             })
     }
 
-    // --- FITUR UNDUH SEMUA AUDIO ---
+    // --- FITUR UNDUH AUDIO & SMART SYNC ---
     private val _downloadProgress = MutableStateFlow(0)
     val downloadProgress: StateFlow<Int> = _downloadProgress.asStateFlow()
 
@@ -363,72 +370,134 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
     private val _totalAudioSize = MutableStateFlow("0 MB")
     val totalAudioSize: StateFlow<String> = _totalAudioSize.asStateFlow()
 
-    // ── TAMBAHAN: Pesan Status Unduhan ──
     private val _downloadStatusMessage = MutableStateFlow("")
     val downloadStatusMessage: StateFlow<String> = _downloadStatusMessage.asStateFlow()
 
     fun calculateLocalAudioStats(context: Context) {
         viewModelScope.launch(Dispatchers.IO) {
-            val uniqueAudioIds = semuaLagu.value
-                .map { it.audio_id }
-                .filter { it.isNotEmpty() }
+            val listLagu = semuaLagu.value.ifEmpty { repository.getSemuaLaguList() }
+
+            val uniqueAudioIds = listLagu
+                .filter { lagu ->
+                    // Filter ketat: Hanya rentang Zinuno, audio_id ada, bukan null, bukan 0
+                    val isLaguZinuno = lagu.nomor_urut in 1..366
+                    val audioIdBersih = lagu.audio_id.trim()
+                    val hasAudio = audioIdBersih.isNotEmpty() && audioIdBersih.lowercase() != "null" && audioIdBersih != "0"
+
+                    isLaguZinuno && hasAudio
+                }
+                .map { it.audio_id.trim() }
                 .distinct()
+                .sortedBy { it.toIntOrNull() ?: 999 } // Urut agar rapi
 
             _totalUniqueAudioCount.value = uniqueAudioIds.size
 
+            // Hitung file fisik
             val expectedFiles = uniqueAudioIds.map { "$it.mp3" }
             val audioFiles = context.filesDir.listFiles { file ->
                 file.name in expectedFiles && !file.name.contains("_temp")
             } ?: emptyArray()
 
             _downloadedCount.value = audioFiles.size
-
             val totalBytes = audioFiles.sumOf { it.length() }
-            val totalMB = totalBytes / (1024.0 * 1024.0)
-            _totalAudioSize.value = String.format("%.1f MB", totalMB)
+            _totalAudioSize.value = String.format("%.1f MB", totalBytes / (1024.0 * 1024.0))
         }
     }
 
-    fun downloadAllAudio(context: Context) {
+    // FUNGSI 1: MENGHITUNG KEKURANGAN FILE & UPDATE VERSI
+    fun checkAudioUpdates(context: Context) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val listLagu = semuaLagu.value.ifEmpty { repository.getSemuaLaguList() }
+
+            // BUKU CATATAN UNTUK MENYIMPAN VERSI AUDIO YANG SUDAH DIDOWNLOAD
+            val prefs = context.getSharedPreferences("AudioOfflinePrefs", Context.MODE_PRIVATE)
+
+            // Kita kelompokkan lagu berdasarkan audio_id nya
+            val groupedAudios = listLagu
+                .filter { it.nomor_urut in 1..366 && it.audio_id.trim().isNotEmpty() && it.audio_id.trim().lowercase() != "null" && it.audio_id.trim() != "0" }
+                .groupBy { it.audio_id.trim() }
+
+            val idsToDownload = mutableListOf<String>()
+
+            for ((audioId, laguList) in groupedAudios) {
+                val localFile = File(context.filesDir, "$audioId.mp3")
+
+                // Cek versi yang tersimpan di HP. Kalau belum pernah download, dianggap versi 0
+                val downloadedVersion = prefs.getInt("version_$audioId", 0)
+
+                // Ambil versi terbaru dari Firebase (Database Room)
+                val serverVersion = laguList.maxOf { it.version }
+
+                // KONDISI PINTAR (SMART SYNC):
+                // 1. Jika file fisiknya belum ada (Missing File)
+                // 2. ATAU file ada, tapi versi yang dulu didownload lebih rendah dari versi server (Update)
+                if (!localFile.exists() || downloadedVersion < serverVersion) {
+                    idsToDownload.add(audioId)
+                }
+            }
+
+            if (idsToDownload.isEmpty()) {
+                _downloadStatusMessage.value = "Semua audio sudah tersimpan secara offline dan up-to-date."
+            } else {
+                pendingAudioIdsToDownload = idsToDownload
+                _pendingAudioCount.value = idsToDownload.size
+                _showSyncDialog.value = true // Munculkan popup ke user
+            }
+        }
+    }
+
+    fun dismissSyncDialog() {
+        _showSyncDialog.value = false
+        pendingAudioIdsToDownload = emptyList()
+    }
+
+    // FUNGSI 2: JALANKAN UNDUHAN HANYA UNTUK FILE YANG KURANG/USANG
+    fun startSmartSync(context: Context) {
         if (_isDownloadingAll.value) return
+        _showSyncDialog.value = false
+
+        if (pendingAudioIdsToDownload.isEmpty()) return
 
         viewModelScope.launch(Dispatchers.IO) {
             _isDownloadingAll.value = true
-            _downloadStatusMessage.value = "" // Reset pesan saat mulai
+            _downloadStatusMessage.value = ""
 
-            val uniqueAudioIds = semuaLagu.value
-                .map { it.audio_id }
-                .filter { it.isNotEmpty() }
-                .distinct()
+            val listLagu = semuaLagu.value.ifEmpty { repository.getSemuaLaguList() }
+            val prefs = context.getSharedPreferences("AudioOfflinePrefs", Context.MODE_PRIVATE)
 
-            val totalToDownload = uniqueAudioIds.size
+            val idsToDownload = pendingAudioIdsToDownload
+            val totalToDownload = idsToDownload.size
             var currentProgress = 0
-            var successfulDownloads = 0 // Menghitung yang benar-benar berhasil diunduh/ada
+            var successfulDownloads = 0
 
-            for (audioId in uniqueAudioIds) {
+            Log.i("DownloadAudio", "Memulai Smart Sync untuk $totalToDownload audio...")
+
+            for (audioId in idsToDownload) {
                 val localFile = File(context.filesDir, "$audioId.mp3")
-
-                if (localFile.exists()) {
-                    currentProgress++
-                    successfulDownloads++
-                    _downloadProgress.value = (currentProgress * 100) / totalToDownload
-                    continue
-                }
 
                 try {
                     val url = "https://raw.githubusercontent.com/loudersyoakim/bkz_afy_audio/main/music_compressed/$audioId.mp3"
                     val conn = URL(url).openConnection() as HttpURLConnection
-                    conn.connectTimeout = 4000
+                    conn.connectTimeout = 5000
                     conn.connect()
 
                     if (conn.responseCode == 200) {
                         val tempFile = File(context.filesDir, "${audioId}_temp.mp3")
                         conn.inputStream.use { i -> tempFile.outputStream().use { o -> i.copyTo(o) } }
+
+                        // Timpa file lama dengan file baru
+                        if (localFile.exists()) localFile.delete()
                         tempFile.renameTo(localFile)
+
                         successfulDownloads++
+
+                        // PENTING: CATAT VERSI TERBARUNYA KE BUKU CATATAN!
+                        val serverVersion = listLagu.filter { it.audio_id.trim() == audioId }.maxOfOrNull { it.version } ?: 1
+                        prefs.edit().putInt("version_$audioId", serverVersion).apply()
                     }
                 } catch (e: Exception) {
-                    File(context.filesDir, "${audioId}_temp.mp3").delete()
+                    Log.e("DownloadAudio", "Gagal unduh ID: $audioId | Error: ${e.message}")
+                    File(context.filesDir, "${audioId}_temp.mp3").delete() // Bersihkan file korup
                 }
 
                 currentProgress++
@@ -436,20 +505,22 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
                 calculateLocalAudioStats(context)
             }
 
+            // Bersihkan Status
             _isDownloadingAll.value = false
             _downloadProgress.value = 0
-            calculateLocalAudioStats(context)
+            pendingAudioIdsToDownload = emptyList()
+            _pendingAudioCount.value = 0
 
-            // ── LOGIKA PESAN JIKA TIDAK LENGKAP ──
+            calculateLocalAudioStats(context) // Hitung final
+
             if (successfulDownloads < totalToDownload) {
-                _downloadStatusMessage.value = "Audio di server belum lengkap. Ditemukan $successfulDownloads dari $totalToDownload audio."
+                _downloadStatusMessage.value = "Koneksi terputus. Berhasil mengunduh $successfulDownloads dari $totalToDownload audio."
             } else {
-                _downloadStatusMessage.value = "Semua audio berhasil diunduh!"
+                _downloadStatusMessage.value = "Smart Sync berhasil! Semua audio sudah up-to-date."
             }
         }
     }
 
-    // Fungsi untuk menghapus pesan (dipanggil dari UI)
     fun clearDownloadStatusMessage() {
         _downloadStatusMessage.value = ""
     }

@@ -85,6 +85,10 @@ fun MenuScreen(
     val devName = viewModel.devName
     val thankYouNote = viewModel.thankYouNote
 
+    // State untuk Dialog Sinkronisasi Audio
+    val showSyncDialog by viewModel.showSyncDialog.collectAsState()
+    val pendingAudioCount by viewModel.pendingAudioCount.collectAsState()
+
     // --- STATE UNTUK AUDIO OFFLINE ---
     val isDownloadingAll by viewModel.isDownloadingAll.collectAsState()
     val downloadedCount by viewModel.downloadedCount.collectAsState()
@@ -105,7 +109,7 @@ fun MenuScreen(
     var showPrivacyDialog by remember { mutableStateOf(false) }
     var devClickCount by remember { mutableIntStateOf(0) }
     var showDeveloperSecret by remember { mutableStateOf(false) }
-
+    var showAudioInfoDialog by remember { mutableStateOf(false) }
     val colorScheme = MaterialTheme.colorScheme
     val textPrimary = colorScheme.onBackground
     val textSecondary = colorScheme.onSurfaceVariant
@@ -167,28 +171,45 @@ fun MenuScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable(enabled = !isDownloadingAll) {
-                                // Mencegah download jika semua data sudah lengkap
+                                // Mencegah download jika semua data sudah lengkap, memanggil Smart Sync
                                 if (downloadedCount < totalUniqueAudioCount) {
-                                    viewModel.downloadAllAudio(context)
+                                    viewModel.checkAudioUpdates(context)
                                 } else if (totalUniqueAudioCount > 0) {
                                     Toast.makeText(context, "Semua audio sudah tersimpan secara offline", Toast.LENGTH_SHORT).show()
                                 } else {
                                     Toast.makeText(context, "Belum ada data audio", Toast.LENGTH_SHORT).show()
                                 }
                             }
-                            .padding(horizontal = 24.dp, vertical = 20.dp),
+                            .padding(horizontal = 24.dp, vertical = 16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(Icons.Rounded.LibraryMusic, null, tint = colorScheme.primary, modifier = Modifier.size(26.dp))
                         Spacer(modifier = Modifier.width(16.dp))
 
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Audio Offline",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = colorScheme.onSurface
-                            )
+                            // --- PERUBAHAN DI SINI: Teks dan Ikon Info Menyatu ---
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Audio Offline",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                // Ikon Info
+                                Icon(
+                                    imageVector = Icons.Rounded.Info,
+                                    contentDescription = "Info Audio Offline",
+                                    tint = colorScheme.outline,
+                                    modifier = Modifier
+                                        .size(16.dp)
+                                        .clip(CircleShape)
+                                        .clickable { showAudioInfoDialog = true } // Membuka Dialog
+                                )
+                            }
+                            // ---------------------------------------------------
+
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = "($downloadedCount/$totalUniqueAudioCount - $totalAudioSize)",
                                 fontSize = 12.sp,
@@ -317,6 +338,60 @@ fun MenuScreen(
         }
     }
 
+    // --- DIALOG: SMART SYNC CONFIRMATION ---
+    if (showSyncDialog) {
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissSyncDialog() },
+            confirmButton = {
+                Button(
+                    onClick = { viewModel.startSmartSync(context) },
+                    colors = ButtonDefaults.buttonColors(containerColor = colorScheme.primary)
+                ) {
+                    Text("Unduh Sekarang", fontWeight = FontWeight.Black, color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.dismissSyncDialog() }) {
+                    Text("Nanti Saja", fontWeight = FontWeight.Bold, color = colorScheme.outline)
+                }
+            },
+            title = { Text("Pembaruan Audio", fontWeight = FontWeight.Black, color = textPrimary) },
+            text = {
+                Text(
+                    text = "Ditemukan $pendingAudioCount file audio yang perlu diunduh atau diperbarui. Apakah Anda ingin menyinkronkan audio sekarang?",
+                    fontSize = 14.sp, color = textSecondary, lineHeight = 22.sp
+                )
+            },
+            shape = RoundedCornerShape(24.dp),
+            containerColor = colorScheme.surface
+        )
+    }
+
+    // --- DIALOG: INFO AUDIO OFFLINE ---
+    if (showAudioInfoDialog) {
+        AlertDialog(
+            onDismissRequest = { showAudioInfoDialog = false },
+            confirmButton = {
+                TextButton(onClick = { showAudioInfoDialog = false }) {
+                    Text("Tutup", fontWeight = FontWeight.Black, color = colorScheme.primary)
+                }
+            },
+            title = {
+                Text("Informasi Audio Offline", fontWeight = FontWeight.Black, color = textPrimary)
+            },
+            text = {
+                Text(
+                    text = "Fitur ini akan mengunduh seluruh nada lagu ke dalam perangkat Anda.\n\nDengan menyimpannya secara offline, Anda dapat memutar nada lagu kapan saja saat ibadah tanpa memerlukan koneksi internet, serta dapat menghemat kuota data seluler Anda.",
+                    fontSize = 14.sp,
+                    color = textSecondary,
+                    lineHeight = 22.sp
+                )
+            },
+            shape = RoundedCornerShape(24.dp),
+            containerColor = colorScheme.surface
+        )
+    }
+
     // --- DIALOG: TENTANG APLIKASI ---
     if (showAboutDialog) {
         AlertDialog(
@@ -381,7 +456,7 @@ fun MenuScreen(
             onDismissRequest = { showContactDialog = false },
             confirmButton = {
                 TextButton(onClick = { showContactDialog = false }) {
-                    Text("Selesai", fontWeight = FontWeight.Black, color = colorScheme.primary)
+                    Text("Tutup", fontWeight = FontWeight.Black, color = colorScheme.primary)
                 }
             },
             title = { Text("Hubungi Kami", fontWeight = FontWeight.Black, color = textPrimary) },
@@ -563,18 +638,23 @@ fun MenuSectionTitle(title: String) {
         modifier = Modifier.padding(start = 16.dp)
     )
 }
-
 @Composable
 fun MenuSwitchItem(icon: ImageVector, title: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 20.dp),
+            .padding(horizontal = 24.dp, vertical = 18.dp), // Disamakan jadi 20.dp
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(26.dp))
+        Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(26.dp)) // Ikon 26.dp
         Spacer(modifier = Modifier.width(16.dp))
-        Text(text = title, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurface)
+        Text(
+            text = title,
+            fontSize = 16.sp, // Teks 16.sp
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.weight(1f),
+            color = MaterialTheme.colorScheme.onSurface
+        )
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
@@ -593,12 +673,18 @@ fun MenuClickableItem(icon: ImageVector, title: String, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() }
-            .padding(horizontal = 24.dp, vertical = 22.dp),
+            .padding(horizontal = 24.dp, vertical = 24.dp), // Disamakan jadi 20.dp
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(26.dp))
+        Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(26.dp)) // Ikon dikembalikan ke 26.dp
         Spacer(modifier = Modifier.width(16.dp))
-        Text(text = title, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurface)
+        Text(
+            text = title,
+            fontSize = 16.sp, // Teks dikembalikan ke 16.sp
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.weight(1f),
+            color = MaterialTheme.colorScheme.onSurface
+        )
         Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(24.dp))
     }
 }

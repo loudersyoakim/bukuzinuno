@@ -1,6 +1,6 @@
 # Buku Zinuno AFY
 
-Aplikasi **Buku Zinuno Angowuloa Fa'awösa Khö Yesu (AFY)** berbasis Android. Dibangun secara modern untuk memudahkan jemaat dalam memuji Tuhan kapan saja dan di mana saja, lengkap dengan lirik dan melodi lagu.
+Aplikasi **Buku Zinuno Angowuloa Fa'awösa Khö Yesu (AFY)** berbasis Android. Dibangun untuk memudahkan jemaat dalam memuji Tuhan kapan saja dan di mana saja, lengkap dengan lirik dan melodi lagu.
 
 ## Fitur Utama
 

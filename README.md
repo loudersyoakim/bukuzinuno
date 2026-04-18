@@ -18,7 +18,7 @@ Aplikasi **Buku Zinuno Angowuloa Fa'awösa Khö Yesu (AFY)** berbasis Android. D
 Aplikasi ini dibangun menggunakan pendekatan *Modern Android Development* (MAD):
 
 - **Bahasa**: [Kotlin](https://kotlinlang.org/)
-- **UI Toolkit**: [Jetpack Compose](https://developer.android.com/jetpack/compose) (100% Declarative UI)
+- **UI Toolkit**: [Jetpack Compose](https://developer.android.com/jetpack/compose) 
 - **Arsitektur**: MVVM (Model-View-ViewModel) + Repository Pattern
 - **Asynchronous**: Coroutines & StateFlow / SharedFlow
 - **Penyimpanan Lokal**: Room Database (SQLite) & SharedPreferences

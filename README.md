@@ -4,14 +4,19 @@ Aplikasi **Buku Zinuno Angowuloa Fa'awösa Khö Yesu (AFY)** berbasis Android. D
 
 ## Fitur Utama
 
-- **Audio & Melodi Offline**: Putar nada lagu langsung dari dalam aplikasi. Mendukung pengunduhan penuh untuk penggunaan tanpa koneksi internet saat ibadah.
-- **Smart Sync Audio (Delta Update)**: Sistem pembaruan audio cerdas. Saat menekan tombol unduh, sistem membandingkan versi lokal dan server, lalu **hanya mengunduh** file MP3 yang belum ada atau versi yang diperbarui. Sangat menghemat kuota dan memori perangkat.
-- **Sinkronisasi Cloud *Real-time***: Pembaruan data lirik, kategori, dan informasi aplikasi dilakukan secara otomatis di latar belakang melalui Firebase, tanpa mewajibkan pengguna memperbarui aplikasi via Play Store.
-- **Pencarian Cepat**: Mesin pencari instan untuk menemukan lagu berdasarkan Nomor Urut atau Judul.
-- **Daftar Favorit**: Simpan lagu-lagu yang sering dinyanyikan agar mudah diakses kembali.
-- **Kenyamanan Pengguna (UI/UX)**: 
-  - Dukungan **Mode Gelap (Dark Mode)** penuh.
-  - Fitur **Layar Tetap Menyala (Keep Screen On)** agar HP tidak otomatis terkunci saat sedang bernyanyi.
+*   **Audio & Melodi Offline**: Putar nada lagu langsung dari dalam aplikasi. Mendukung pengunduhan penuh untuk penggunaan tanpa koneksi internet saat ibadah.
+*   **Smart Sync Audio (Delta Update)**: Sistem pembaruan audio cerdas. Saat menekan tombol unduh, sistem membandingkan versi lokal dan server, lalu **hanya mengunduh** file MP3 yang belum ada atau versi yang diperbarui. Sangat menghemat kuota dan memori perangkat.
+*   **Sinkronisasi Cloud *Real-time***: Pembaruan data lirik, kategori, dan informasi aplikasi dilakukan secara otomatis di latar belakang melalui Firebase, tanpa mewajibkan pengguna memperbarui aplikasi via Play Store.
+*   **Pencarian Cepat**: Mesin pencari instan untuk menemukan lagu berdasarkan Nomor Urut atau Judul.
+*   **Daftar Favorit**: Simpan lagu-lagu yang sering dinyanyikan agar mudah diakses kembali.
+
+## Kenyamanan Pengguna (UI/UX)
+
+*   **Pinch to Zoom**: Sesuaikan ukuran teks lirik dengan mudah hanya dengan gerakan mencubit layar—sangat membantu untuk keterbacaan yang lebih baik bagi semua kalangan usia.
+*   **Fitur Berbagi (Sharing)**: Bagikan lirik lagu favorit ke media sosial atau aplikasi pesan (WhatsApp, dll) hanya dengan satu klik.
+*   **Layar Tetap Menyala (Keep Screen On)**: Mencegah layar HP terkunci atau redup secara otomatis saat sedang bernyanyi atau beribadah.
+*   **Dukungan Mode Gelap (Dark Mode)**: Tampilan antarmuka yang penuh kenyamanan di mata, baik dalam kondisi cahaya terang maupun gelap.
+
 
 ## Teknologi & Arsitektur
 

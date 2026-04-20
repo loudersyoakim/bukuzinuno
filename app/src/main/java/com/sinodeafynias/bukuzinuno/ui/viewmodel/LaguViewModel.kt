@@ -61,6 +61,12 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
     // --- STATE APP INFO ---
     var appDescription by mutableStateOf("")
         private set
+    var audioBaseUrl by mutableStateOf("https://raw.githubusercontent.com/loudersyoakim/bkz_afy_audio/main/music_compressed/")
+        private set
+    var repoAppUrl by mutableStateOf("https://github.com/loudersyoakim/bukuzinuno")
+        private set
+    var repoAudioUrl by mutableStateOf("https://github.com/loudersyoakim/bkz_afy_audio")
+        private set
     var churchEmail by mutableStateOf("")
         private set
     var devContact by mutableStateOf("")
@@ -138,7 +144,9 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
         devName = prefs.getString("app_dev", "") ?: ""
         thankYouNote = prefs.getString("app_thanks", "") ?: ""
         devContact = prefs.getString("app_wa", "") ?: ""
-
+        audioBaseUrl = prefs.getString("audio_base_url", "https://raw.githubusercontent.com/loudersyoakim/bkz_afy_audio/main/music_compressed/") ?: ""
+        repoAppUrl = prefs.getString("repo_app", "https://github.com/loudersyoakim/bukuzinuno") ?: ""
+        repoAudioUrl = prefs.getString("repo_audio", "https://github.com/loudersyoakim/bkz_afy_audio") ?: ""
         privacyIntro = prefs.getString("privacy_intro", "") ?: ""
         privacyLastUpdate = prefs.getString("privacy_update", "") ?: ""
 
@@ -163,6 +171,9 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
                 devName = data["developer"]?.toString() ?: devName
                 thankYouNote = data["thanks"]?.toString() ?: thankYouNote
                 devContact = data["whatsapp"]?.toString() ?: devContact
+                audioBaseUrl = data["audio_base_url"]?.toString() ?: audioBaseUrl
+                repoAppUrl = data["repo_app"]?.toString() ?: repoAppUrl
+                repoAudioUrl = data["repo_audio"]?.toString() ?: repoAudioUrl
 
                 // Parsing Objek Bersarang (Nested) Privacy Policy
                 val privacyMap = data["privacy_policy"] as? Map<String, Any>
@@ -195,6 +206,9 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
                     .putString("privacy_intro", privacyIntro)
                     .putString("privacy_update", privacyLastUpdate)
                     .putString("privacy_rules", Gson().toJson(privacyRules))
+                    .putString("audio_base_url", audioBaseUrl)
+                    .putString("repo_app", repoAppUrl)
+                    .putString("repo_audio", repoAudioUrl)
                     .putInt("versi_app_info", 1)
                     .apply()
 
@@ -226,6 +240,9 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
                         devContact = snapshot.child("whatsapp").value?.toString() ?: devContact
                         devName = snapshot.child("developer").value?.toString() ?: devName
                         thankYouNote = snapshot.child("thanks").value?.toString() ?: thankYouNote
+                        audioBaseUrl = snapshot.child("audio_base_url").value?.toString() ?: audioBaseUrl
+                        repoAppUrl = snapshot.child("repo_app").value?.toString() ?: repoAppUrl
+                        repoAudioUrl = snapshot.child("repo_audio").value?.toString() ?: repoAudioUrl
 
                         // Parsing Privacy Policy dari Firebase
                         val privacySnap = snapshot.child("privacy_policy")
@@ -260,6 +277,9 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
                             .putString("privacy_intro", privacyIntro)
                             .putString("privacy_update", privacyLastUpdate)
                             .putString("privacy_rules", Gson().toJson(privacyRules))
+                            .putString("audio_base_url", audioBaseUrl)
+                            .putString("repo_app", repoAppUrl)
+                            .putString("repo_audio", repoAudioUrl)
                             .apply()
 
                         Log.d("Sync", "App Info diperbarui dari Firebase ke versi $versiServer")
@@ -462,6 +482,7 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
             _isDownloadingAll.value = true
             _downloadStatusMessage.value = ""
 
+
             val listLagu = semuaLagu.value.ifEmpty { repository.getSemuaLaguList() }
             val prefs = context.getSharedPreferences("AudioOfflinePrefs", Context.MODE_PRIVATE)
 
@@ -476,7 +497,7 @@ class LaguViewModel(private val repository: LaguRepository) : ViewModel() {
                 val localFile = File(context.filesDir, "$audioId.mp3")
 
                 try {
-                    val url = "https://raw.githubusercontent.com/loudersyoakim/bkz_afy_audio/main/music_compressed/$audioId.mp3"
+                    val url = "${audioBaseUrl}$audioId.mp3"
                     val conn = URL(url).openConnection() as HttpURLConnection
                     conn.connectTimeout = 5000
                     conn.connect()

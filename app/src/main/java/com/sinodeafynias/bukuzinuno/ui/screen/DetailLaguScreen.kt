@@ -128,7 +128,8 @@ fun DetailLaguScreen(
                             audioId = lagu.audio_id,
                             nadaText = lagu.nada,
                             context = context,
-                            colorScheme = colorScheme
+                            colorScheme = colorScheme,
+                            audioBaseUrl = viewModel.audioBaseUrl
                         )
                     }
                 } else if (lagu.nada.isNotEmpty()) {
@@ -302,7 +303,8 @@ fun ExpandableAudioPlayer(
     audioId: String,
     nadaText: String,
     context: Context,
-    colorScheme: ColorScheme
+    colorScheme: ColorScheme,
+    audioBaseUrl: String
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val coroutineScope = rememberCoroutineScope()
@@ -432,7 +434,7 @@ fun ExpandableAudioPlayer(
                             } else {
                                 coroutineScope.launch {
                                     isDownloading = true
-                                    val url = "https://raw.githubusercontent.com/loudersyoakim/bkz_afy_audio/main/music_compressed/$audioId.mp3"
+                                    val url = "${audioBaseUrl}$audioId.mp3"
 
                                     val ok = withContext(Dispatchers.IO) {
                                         try {
@@ -546,7 +548,7 @@ fun ExpandableAudioPlayer(
                                     isSyncing = true
                                     exoPlayer.stop() // Hentikan pemutaran
 
-                                    val url = "https://raw.githubusercontent.com/loudersyoakim/bkz_afy_audio/main/music_compressed/$audioId.mp3"
+                                    val url = "${audioBaseUrl}$audioId.mp3"
 
                                     val ok = withContext(Dispatchers.IO) {
                                         try {

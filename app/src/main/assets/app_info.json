@@ -1,4 +1,5 @@
 {
+  "audio_base_url": "https://raw.githubusercontent.com/loudersyoakim/bkz_afy_audio/main/music_compressed/",
   "description": "Buku Zinuno AFY digital hadir sebagai jembatan bagi jemaat untuk memuji Tuhan dengan lebih mudah di era digital.",
   "developer": "Sinode AFY",
   "email": "sinodeafynias@gmail.com",
@@ -18,6 +19,8 @@
       "head": "Pengalaman Bebas Iklan"
     }
   },
+  "repo_app": "https://github.com/loudersyoakim/bukuzinuno",
+  "repo_audio": "https://github.com/loudersyoakim/bkz_afy_audio",
   "thanks": "Terima kasih kepada Sinode AFY dan seluruh Jemaat yang telah mendukung digitalisasi Buku Zinuno ini. Shalom!",
   "version": 1,
   "whatsapp": "+6281317770717"

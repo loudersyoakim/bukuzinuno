@@ -549,15 +549,15 @@ fun MenuScreen(
 
                         Spacer(modifier = Modifier.height(4.dp))
 
-                        // Link 1: Repo Utama
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { uriHandler.openUri("https://github.com/loudersyoakim/bukuzinuno") }.padding(vertical = 6.dp)) {
+                        // Link 1: Repo Utama (Dinamis dari Firebase)
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { uriHandler.openUri(viewModel.repoAppUrl) }.padding(vertical = 6.dp)) {
                             Icon(Icons.Rounded.Code, null, tint = colorScheme.primary, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Repositori Utama (Kode)", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colorScheme.primary, textDecoration = TextDecoration.Underline)
                         }
 
-                        // Link 2: Repo Audio
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { uriHandler.openUri("https://github.com/loudersyoakim/bkz_afy_audio") }.padding(vertical = 6.dp)) {
+                        // Link 2: Repo Audio (Dinamis dari Firebase)
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { uriHandler.openUri(viewModel.repoAudioUrl) }.padding(vertical = 6.dp)) {
                             Icon(Icons.Rounded.LibraryMusic, null, tint = colorScheme.primary, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Repositori Audio (MP3)", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = colorScheme.primary, textDecoration = TextDecoration.Underline)

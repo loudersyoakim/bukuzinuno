@@ -123,13 +123,14 @@ fun DetailLaguScreen(
             ) {
                 if (lagu.audio_id.isNotEmpty()) {
                     // Jika ada audio, gunakan Expandable Player (menggantikan Pill Nada statis)
+                    //  audioBaseUrl = viewModel.audioBaseUrl
+
                     key(lagu.id) {
                         ExpandableAudioPlayer(
                             audioId = lagu.audio_id,
                             nadaText = lagu.nada,
                             context = context,
-                            colorScheme = colorScheme,
-                            audioBaseUrl = viewModel.audioBaseUrl
+                            colorScheme = colorScheme
                         )
                     }
                 } else if (lagu.nada.isNotEmpty()) {
@@ -303,8 +304,7 @@ fun ExpandableAudioPlayer(
     audioId: String,
     nadaText: String,
     context: Context,
-    colorScheme: ColorScheme,
-    audioBaseUrl: String
+    colorScheme: ColorScheme
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val coroutineScope = rememberCoroutineScope()
@@ -312,8 +312,6 @@ fun ExpandableAudioPlayer(
     var isExpanded    by remember { mutableStateOf(false) }
     var isPlaying     by remember { mutableStateOf(false) }
     var isBuffering   by remember { mutableStateOf(false) }
-    var isDownloading by remember { mutableStateOf(false) } // Untuk unduhan awal
-    var isSyncing     by remember { mutableStateOf(false) } // Khusus untuk fitur Update
     var isRepeat      by remember { mutableStateOf(false) }
     var duration      by remember { mutableLongStateOf(0L) }
     var currentPos    by remember { mutableLongStateOf(0L) }
@@ -322,10 +320,29 @@ fun ExpandableAudioPlayer(
         ExoPlayer.Builder(context).build().apply { playWhenReady = false }
     }
 
-    fun playLocal(file: File) {
-        exoPlayer.setMediaItem(MediaItem.fromUri(file.toUri()))
-        exoPlayer.prepare()
+    // --- FUNGSI FADE IN & SKIP MILIDETIK PERTAMA ---
+    fun playWithFadeIn() {
+        exoPlayer.volume = 0f // Mulai dari senyap (0%)
+
+        // Trik Rahasia: Lewati 80 milidetik pertama untuk memotong bunyi "chss" MP3
+        exoPlayer.seekTo(80L)
         exoPlayer.play()
+
+        // Naikkan volume perlahan (10 step x 30ms = 300ms)
+        coroutineScope.launch {
+            for (i in 1..10) {
+                delay(100L)
+                exoPlayer.volume = i / 10f
+            }
+            exoPlayer.volume = 1f // Pastikan volume stabil di 100%
+        }
+    }
+
+    fun playAsset(id: String) {
+        val assetPath = "asset:///audio/$id.mp3"
+        exoPlayer.setMediaItem(MediaItem.fromUri(assetPath))
+        exoPlayer.prepare()
+        playWithFadeIn() // Panggil efek fade in saat pertama kali mulai
     }
 
     DisposableEffect(Unit) {
@@ -334,7 +351,6 @@ fun ExpandableAudioPlayer(
             override fun onPlaybackStateChanged(state: Int) {
                 isBuffering = state == Player.STATE_BUFFERING
 
-                // Ambil durasi awal jika sudah siap
                 if (state == Player.STATE_READY) {
                     val d = exoPlayer.duration
                     if (d > 0) duration = d
@@ -343,10 +359,10 @@ fun ExpandableAudioPlayer(
                 if (state == Player.STATE_ENDED) {
                     if (isRepeat) {
                         coroutineScope.launch {
-                            exoPlayer.seekTo(0)
                             exoPlayer.pause()
-                            delay(1000L) // Jeda 1 detik
-                            exoPlayer.play()
+                            delay(1000L)
+                            // Gunakan playWithFadeIn() saat lagu diulang
+                            playWithFadeIn()
                         }
                     } else {
                         exoPlayer.seekTo(0)
@@ -367,19 +383,15 @@ fun ExpandableAudioPlayer(
         }
     }
 
-    // Ticker Slider diperbarui agar terus memantau durasi
     LaunchedEffect(isPlaying) {
         if (!isPlaying) return@LaunchedEffect
         while (isActive) {
             currentPos = exoPlayer.currentPosition
-
-            // FIX BUG TITIK DIAM: Terus update durasi jika sebelumnya gagal terbaca
             val d = exoPlayer.duration
             if (d > 0 && duration <= 0L) {
                 duration = d
             }
-
-            delay(150L) // Refresh rate dipercepat sedikit agar titik berjalan lebih mulus
+            delay(150L)
         }
     }
 
@@ -392,7 +404,6 @@ fun ExpandableAudioPlayer(
     }
 
     val primary = colorScheme.primary
-    val localFile = File(context.filesDir, "$audioId.mp3")
 
     Surface(
         color = primary.copy(alpha = 0.10f),
@@ -426,64 +437,30 @@ fun ExpandableAudioPlayer(
                 modifier = Modifier
                     .size(32.dp)
                     .clip(CircleShape)
-                    .clickable(enabled = !isDownloading && !isSyncing) {
+                    .clickable {
                         if (!isExpanded) {
                             isExpanded = true
-                            if (localFile.exists()) {
-                                playLocal(localFile)
-                            } else {
-                                coroutineScope.launch {
-                                    isDownloading = true
-                                    val url = "${audioBaseUrl}$audioId.mp3"
-
-                                    val ok = withContext(Dispatchers.IO) {
-                                        try {
-                                            val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
-                                            conn.connectTimeout = 4000
-                                            conn.connect()
-
-                                            if (conn.responseCode != 200) {
-                                                withContext(Dispatchers.Main) { Toast.makeText(context, "Lagu belum tersedia di server", Toast.LENGTH_LONG).show() }
-                                                return@withContext false
-                                            }
-
-                                            conn.inputStream.use { i ->
-                                                localFile.outputStream().use { o -> i.copyTo(o) }
-                                            }
-                                            true
-                                        } catch (e: java.net.UnknownHostException) {
-                                            withContext(Dispatchers.Main) { Toast.makeText(context, "Tidak ada internet. Nyalakan data seluler.", Toast.LENGTH_LONG).show() }
-                                            localFile.delete()
-                                            false
-                                        } catch (e: Exception) {
-                                            withContext(Dispatchers.Main) { Toast.makeText(context, "Terjadi gangguan jaringan", Toast.LENGTH_SHORT).show() }
-                                            localFile.delete()
-                                            false
-                                        }
-                                    }
-
-                                    isDownloading = false
-                                    if (ok) {
-                                        playLocal(localFile)
-                                    } else {
-                                        isExpanded = false
-                                    }
-                                }
-                            }
+                            playAsset(audioId)
                         } else {
-                            if (isPlaying) exoPlayer.pause() else exoPlayer.play()
+                            if (isPlaying) {
+                                exoPlayer.pause()
+                            } else {
+                                // PENTING: Kembalikan volume ke 100% jika lagu dilanjutkan (Resume)
+                                exoPlayer.volume = 1f
+                                exoPlayer.play()
+                            }
                         }
                     }
             ) {
                 when {
-                    isBuffering || isDownloading -> CircularProgressIndicator(modifier = Modifier.size(14.dp), color = primary, strokeWidth = 1.5.dp)
+                    isBuffering -> CircularProgressIndicator(modifier = Modifier.size(14.dp), color = primary, strokeWidth = 1.5.dp)
                     isPlaying -> Icon(Icons.Rounded.Pause, "Jeda", tint = primary, modifier = Modifier.size(16.dp))
                     else -> Icon(Icons.Rounded.PlayArrow, "Putar", tint = primary, modifier = Modifier.size(16.dp))
                 }
             }
 
             AnimatedVisibility(
-                visible = isExpanded && !isDownloading,
+                visible = isExpanded,
                 enter = expandHorizontally(
                     animationSpec = tween(300, easing = FastOutSlowInEasing),
                     expandFrom = Alignment.Start
@@ -507,7 +484,6 @@ fun ExpandableAudioPlayer(
                             .height(20.dp)
                             .pointerInput(duration) {
                                 detectHorizontalDragGestures { change, _ ->
-                                    if (isSyncing) return@detectHorizontalDragGestures // Cegah drag saat sync
                                     change.consume()
                                     val fraction = (change.position.x / size.width).coerceIn(0f, 1f)
                                     val seekTo = (fraction * duration).toLong()
@@ -537,76 +513,12 @@ fun ExpandableAudioPlayer(
 
                     Spacer(modifier = Modifier.width(6.dp))
 
-                    // ── TOMBOL SYNC / UPDATE ──
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
                             .size(24.dp)
                             .clip(CircleShape)
-                            .clickable(enabled = !isSyncing) {
-                                coroutineScope.launch {
-                                    isSyncing = true
-                                    exoPlayer.stop() // Hentikan pemutaran
-
-                                    val url = "${audioBaseUrl}$audioId.mp3"
-
-                                    val ok = withContext(Dispatchers.IO) {
-                                        try {
-                                            val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
-                                            conn.connectTimeout = 4000
-                                            conn.connect()
-
-                                            // Jika file ditemukan, timpa yang lama
-                                            if (conn.responseCode == 200) {
-                                                // Buat file sementara agar jika gagal di tengah jalan, file asli tidak rusak
-                                                val tempFile = File(context.filesDir, "${audioId}_temp.mp3")
-                                                conn.inputStream.use { i -> tempFile.outputStream().use { o -> i.copyTo(o) } }
-
-                                                // Jika berhasil terunduh penuh, hapus yang lama dan rename temp ke asli
-                                                if (localFile.exists()) localFile.delete()
-                                                tempFile.renameTo(localFile)
-                                                true
-                                            } else {
-                                                withContext(Dispatchers.Main) { Toast.makeText(context, "Lagu di server tidak ditemukan", Toast.LENGTH_SHORT).show() }
-                                                false
-                                            }
-                                        } catch (e: Exception) {
-                                            withContext(Dispatchers.Main) { Toast.makeText(context, "Gagal memperbarui lagu. Periksa internet Anda.", Toast.LENGTH_SHORT).show() }
-                                            File(context.filesDir, "${audioId}_temp.mp3").delete() // Bersihkan temp file
-                                            false
-                                        }
-                                    }
-
-                                    isSyncing = false
-                                    if (ok) {
-                                        Toast.makeText(context, "Lagu diperbarui!", Toast.LENGTH_SHORT).show()
-                                        playLocal(localFile) // Putar ulang versi terbaru
-                                    } else {
-                                        // Jika gagal update (misal internet putus), putar ulang yang lama jika masih ada
-                                        if (localFile.exists()) playLocal(localFile)
-                                    }
-                                }
-                            }
-                    ) {
-                        if (isSyncing) {
-                            CircularProgressIndicator(modifier = Modifier.size(12.dp), color = primary, strokeWidth = 1.5.dp)
-                        } else {
-                            Icon(
-                                imageVector = Icons.Rounded.Sync,
-                                contentDescription = "Perbarui",
-                                tint = primary.copy(alpha = 0.7f),
-                                modifier = Modifier.size(15.dp)
-                            )
-                        }
-                    }
-
-                    // ── TOMBOL REPEAT ──
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(24.dp)
-                            .clip(CircleShape)
-                            .clickable(enabled = !isSyncing) {
+                            .clickable {
                                 isRepeat = !isRepeat
                                 exoPlayer.repeatMode = if (isRepeat) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
                             }

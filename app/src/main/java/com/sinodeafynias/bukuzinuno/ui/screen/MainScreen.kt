@@ -41,6 +41,7 @@ fun String.menormalisasiTeks(): String {
         .replace("ö", "o")
         .replace("ӧ", "o")
         .replace("ŵ", "w")
+        .replace("ẅ", "w")
         .replace("ŵ", "w")
         .replace("Ö", "o")
         .replace("Ŵ", "w")

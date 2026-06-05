@@ -15,8 +15,8 @@ android {
         applicationId = "com.sinodeafynias.bukuzinuno"
         minSdk = 24
         targetSdk = 36
-        versionCode = 7
-        versionName = "2.5"
+        versionCode = 13
+        versionName = "1.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
